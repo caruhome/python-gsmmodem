@@ -220,7 +220,7 @@ class GsmModem(SerialComms):
             pinCheckComplete = False
         self.write('ATE0') # echo off
         try:
-            cfun = int(lineStartingWith('+CFUN:', self.write('AT+CFUN?'))[7:]) # example response: +CFUN: 1
+            cfun = int(lineStartingWith('+CFUN:', self.write('AT+CFUN?'))[7]) # example response: +CFUN: 1,0
             if cfun != 1:
                 self.write('AT+CFUN=1')
         except CommandError:
