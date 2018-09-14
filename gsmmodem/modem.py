@@ -1209,7 +1209,7 @@ class GsmModem(SerialComms):
             elif next_line_is_te_statusreport:
                 self._handleSmsStatusReportTe(next_line_is_te_statusreport_length, line)
                 return
-            elif line.startswith('+DTMF'):
+            elif line.startswith('+UUDTMFD'):
                 # New incoming DTMF
                 self._handleIncomingDTMF(line)
                 return
