@@ -146,11 +146,12 @@ class GsmModem(SerialComms):
     CDSI_REGEX = re.compile('\+CDSI:\s*"([^"]+)",(\d+)$')
     CDS_REGEX  = re.compile('\+CDS:\s*([0-9]+)"$')
 
-    def __init__(self, port, baudrate=115200, incomingCallCallbackFunc=None, smsReceivedCallbackFunc=None, smsStatusReportCallback=None, requestDelivery=True, AT_CNMI="", *a, **kw):
+    def __init__(self, port, baudrate=115200, incomingCallCallbackFunc=None, smsReceivedCallbackFunc=None, smsStatusReportCallback=None, dtmfReceivedCallback=None, requestDelivery=True, AT_CNMI="", *a, **kw):
         super(GsmModem, self).__init__(port, baudrate, notifyCallbackFunc=self._handleModemNotification, *a, **kw)
         self.incomingCallCallback = incomingCallCallbackFunc or self._placeholderCallback
         self.smsReceivedCallback = smsReceivedCallbackFunc or self._placeholderCallback
         self.smsStatusReportCallback = smsStatusReportCallback or self._placeholderCallback
+        self.dtmfReceivedCallback = dtmfReceivedCallback or self._placeholderCallback
         self.requestDelivery = requestDelivery
         self.AT_CNMI = AT_CNMI or "2,1,0,2"
         # Flag indicating whether caller ID for incoming call notification has been set up
@@ -1231,6 +1232,7 @@ class GsmModem(SerialComms):
         try:
             dtmf_num=line.split(':')[1].replace(" ","")
             self.dtmfpool.append(dtmf_num)
+            self.dtmfReceivedCallback(dtmf_num)
             self.log.debug('DTMF number is {0}'.format(dtmf_num))
         except:
             self.log.debug('Error parse DTMF number on line {0}'.format(line))
