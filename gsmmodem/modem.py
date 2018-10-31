@@ -429,6 +429,9 @@ class GsmModem(SerialComms):
             else:
                 raise PinRequiredError('AT+CPIN')
 
+    def enableDtmf(self):
+        self.write("AT+UDTMFD=1,2")
+
     def write(self, data, waitForResponse=True, timeout=10, parseError=True, writeTerm=TERMINATOR, expectedResponseTermSeq=None):
         """ Write data to the modem.
 
