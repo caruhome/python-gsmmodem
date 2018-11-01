@@ -127,7 +127,7 @@ class GsmModem(SerialComms):
     # Used for parsing AT command errors
     CM_ERROR_REGEX = re.compile('^\+(CM[ES]) ERROR: (\d+)$')
     # Used for parsing signal strength query responses
-    CSQ_REGEX = re.compile('^\+CSQ:\s*(\d+),')
+    CSQ_REGEX = re.compile('^\+CSQ:\s*(\d+),(\d+)')
     # Used for parsing caller ID announcements for incoming calls. Group 1 is the number
     CLIP_REGEX = re.compile('^\+CLIP:\s*"\+{0,1}(\d+)",(\d+).*$')
     # Used for parsing own number. Group 1 is the number
@@ -507,6 +507,15 @@ class GsmModem(SerialComms):
         if csq:
             ss = int(csq.group(1))
             return ss if ss != 99 else -1
+        else:
+            raise CommandError()
+
+    @property
+    def signalQuality(self):
+        csq = self.CSQ_REGEX.match(self.write('AT+CSQ')[0])
+        if csq:
+            sq = int(csq.group(2))
+            return sq
         else:
             raise CommandError()
 
