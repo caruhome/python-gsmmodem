@@ -128,6 +128,8 @@ class GsmModem(SerialComms):
     CM_ERROR_REGEX = re.compile('^\+(CM[ES]) ERROR: (\d+)$')
     # Used for parsing signal strength query responses
     CSQ_REGEX = re.compile('^\+CSQ:\s*(\d+),(\d+)')
+    # ^ extended signal information
+    CESQ_REGEX = re.compile('^\+CESQ:\s*(\d+),(\d+),(\d+),(\d+),(\d+),(\d+)$')
     # Used for parsing caller ID announcements for incoming calls. Group 1 is the number
     CLIP_REGEX = re.compile('^\+CLIP:\s*"\+{0,1}(\d+)",(\d+).*$')
     # Used for parsing own number. Group 1 is the number
@@ -270,6 +272,9 @@ class GsmModem(SerialComms):
                     self.write('AT+WIND=50')
                 callUpdateTableHint = 2 # Wavecom
 
+        if self.model == "LARA-R211":
+            callUpdateTableHint = 4
+
         # Attempt to identify modem type directly (if not already) - for outgoing call status updates
         if callUpdateTableHint == 0:
             if 'simcom' in self.manufacturer.lower() : #simcom modems support DTMF and don't support AT+CLAC
@@ -318,6 +323,15 @@ class GsmModem(SerialComms):
             self._waitForCallInitUpdate = False # ZTE modems do not provide "call initiated" updates
             if commands == None: # ZTE uses standard +VTS for DTMF
                 Call.dtmfSupport = True
+
+        elif callUpdateTableHint == 4: # LARA-R211
+            self.log.info('Loading ZTE call state update table')
+            self._callStatusUpdates = ((re.compile('^\+UCALLSTAT:\s*(\d+),(0|7)$'), self._handleCallAnswered),
+                                       (re.compile('^NO\s*\CARRIER$'), self._handleCallEnded),
+                                       (re.compile('^NO\s*\CARRIER$'), self._handleCallRejected))
+            self._waitForAtdResponse = True # Most modems return OK immediately after issuing ATD
+            self._mustPollCallStatus = False
+            self._waitForCallInitUpdate = False
         else:
             # Unknown modem - we do not know what its call updates look like. Use polling instead
             self.log.info('Unknown/generic modem type - will use polling for call state updates')
@@ -430,7 +444,10 @@ class GsmModem(SerialComms):
                 raise PinRequiredError('AT+CPIN')
 
     def enableDtmf(self):
-        self.write("AT+UDTMFD=1,2")
+        return self.write("AT+UDTMFD=1,2")
+
+    def enableCallStatusUpdates(self):
+        return self.write("AT+UCALLSTAT=1")
 
     def write(self, data, waitForResponse=True, timeout=10, parseError=True, writeTerm=TERMINATOR, expectedResponseTermSeq=None):
         """ Write data to the modem.
@@ -493,6 +510,29 @@ class GsmModem(SerialComms):
                 elif cmdStatusLine == 'COMMAND NOT SUPPORT': # Some Huawei modems respond with this for unknown commands
                     raise CommandError('{} ({})'.format(data,cmdStatusLine))
             return responseLines
+
+    def signalStrengthExtended(self):
+        """ Extended check of cellular network signal
+
+        - rxlev: received signal strength indication (rssi)
+        - ber: bit error rate
+        - rscp: received signal code power
+        - ecn0: ratio of received energy per PN chip to the total power spectral density
+
+        → see Lara R211, AT commands manual; page 82, chapter 7.3.3
+
+        :raise CommandError: if an error occurs
+
+        :return A tuple (rxlev, ber, rscp, ecn0)
+        """
+        cesq = self.CESQ_REGEX.match(self.write('AT+CESQ')[0])
+
+        rxlev = cesq.group(1)
+        ber = cesq.group(2)
+        rscp = cesq.group(3)
+        ecn0 = cesq.group(4)
+
+        return (rxlev, ber, rscp, ecn0)
 
     @property
     def signalStrength(self):
@@ -755,7 +795,7 @@ class GsmModem(SerialComms):
         return self._gsmBusy
     @gsmBusy.setter
     def gsmBusy(self, gsmBusy):
-        """ Sete GSMBUSY state """
+        """ Set GSMBUSY state """
         if gsmBusy != self._gsmBusy:
             if self.alive:
                 self.write('AT+GSMBUSY="{0}"'.format(gsmBusy))
