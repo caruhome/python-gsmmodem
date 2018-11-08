@@ -600,7 +600,7 @@ class GsmModem(SerialComms):
         try:
             # AT+CLAC responses differ between modems. Most respond with +CLAC: and then a comma-separated list of commands
             # while others simply return each command on a new line, with no +CLAC: prefix
-            response = self.write('AT+CLAC', timeout=10)
+            response = self.write('AT+CLAC', timeout=20)
             if len(response) == 2: # Single-line response, comma separated
                 commands = response[0]
                 if commands.startswith('+CLAC'):
@@ -614,7 +614,7 @@ class GsmModem(SerialComms):
         except (TimeoutException, CommandError):
             # Try interactive command recognition
             commands = []
-            checkable_commands = ['^CVOICE', '+VTS', '^DTMF', '^USSDMODE', '+WIND', '+ZPAS', '+CSCS', '+CNUM']
+            checkable_commands = ['+VTS', '+CSCS', '+CNUM']
 
             # Check if modem is still alive
             try:
