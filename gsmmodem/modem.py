@@ -446,6 +446,16 @@ class GsmModem(SerialComms):
     def enableDtmf(self):
         return self.write("AT+UDTMFD=1,2")
 
+    def enableGsmOnly(self):
+        self.write("AT+COPS=2")
+        self.write("AT+URAT=0,0")
+        self.write("AT+COPS=0")
+
+    def setI2SParameterAndPaths(self):
+        self.write("AT+USPM=255,255,0,0,2")
+        self.write("AT+UI2S=1,1,0,8,1")
+        self.write("AT+USPM=4,4,0,0,2")
+
     def enableCallStatusUpdates(self):
         return self.write("AT+UCALLSTAT=1")
 
