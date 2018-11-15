@@ -444,7 +444,7 @@ class GsmModem(SerialComms):
                 raise PinRequiredError('AT+CPIN')
 
     def enableDtmf(self):
-        return self.write("AT+UDTMFD=1,2")
+        return self.write("AT+UDTMFD=1,2,8,100")
 
     def enableGsmOnly(self):
         self.write("AT+COPS=2")
