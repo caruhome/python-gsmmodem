@@ -328,7 +328,7 @@ class GsmModem(SerialComms):
             self.log.info('Loading ZTE call state update table')
             self._callStatusUpdates = ((re.compile('^\+UCALLSTAT:\s*(\d+),(0|7)$'), self._handleCallAnswered),
                                        (re.compile('^NO\s*CARRIER$'), self._handleCallEnded),
-                                       (re.compile('^NO\s*(CARRIER|ANSWER)$'), self._handleCallRejected))
+                                       (re.compile('^NO\s*CARRIER|ANSWER$'), self._handleCallRejected))
             self._waitForAtdResponse = True # Most modems return OK immediately after issuing ATD
             self._mustPollCallStatus = False
             self._waitForCallInitUpdate = False
