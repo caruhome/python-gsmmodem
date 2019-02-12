@@ -2,7 +2,14 @@
 
 """ High-level API classes for an attached GSM modem """
 
-import sys, re, logging, weakref, time, threading, abc, codecs
+import sys
+import re
+import logging
+import weakref
+import time
+import threading
+import abc
+import codecs
 from datetime import datetime
 from time import sleep
 
@@ -11,7 +18,7 @@ from .exceptions import CommandError, InvalidStateException, CmeError, CmsError,
 from .pdu import encodeSmsSubmitPdu, decodeSmsPdu, encodeGsm7, encodeTextMode
 from .util import SimpleOffsetTzInfo, lineStartingWith, allLinesMatchingPattern, parseTextModeTimeStr
 
-#from . import compat # For Python 2.6 compatibility
+# from . import compat # For Python 2.6 compatibility
 from gsmmodem.util import lineMatching
 from gsmmodem.exceptions import EncodingError
 PYTHON_VERSION = sys.version_info[0]
@@ -23,7 +30,7 @@ if PYTHON_VERSION >= 3:
     xrange = range
     dictValuesIter = dict.values
     dictItemsIter = dict.items
-else: #pragma: no cover
+else:  # pragma: no cover
     dictValuesIter = dict.itervalues
     dictItemsIter = dict.iteritems
 
@@ -73,16 +80,17 @@ class ReceivedSms(Sms):
         """ Convenience method that returns the gsm modem instance """
         return self._gsmModem
 
+
 class SentSms(Sms):
     """ An SMS message that has been sent (MO) """
 
-    ENROUTE = 0 # Status indicating message is still enroute to destination
-    DELIVERED = 1 # Status indicating message has been received by destination handset
-    FAILED = 2 # Status indicating message delivery has failed
+    ENROUTE = 0  # Status indicating message is still enroute to destination
+    DELIVERED = 1  # Status indicating message has been received by destination handset
+    FAILED = 2  # Status indicating message delivery has failed
 
     def __init__(self, number, text, reference, smsc=None):
         super(SentSms, self).__init__(number, text, smsc)
-        self.report = None # Status report for this SMS (StatusReport object)
+        self.report = None  # Status report for this SMS (StatusReport object)
         self.reference = reference
 
     @property
@@ -106,8 +114,8 @@ class StatusReport(Sms):
     use the 'deliveryStatus' attribute.
     """
 
-    DELIVERED = 0 # SMS delivery status: delivery successful
-    FAILED = 68 # SMS delivery status: delivery failed
+    DELIVERED = 0  # SMS delivery status: delivery successful
+    FAILED = 68  # SMS delivery status: delivery failed
 
     def __init__(self, gsmModem, status, reference, number, timeSent, timeFinalized, deliveryStatus, smsc=None):
         super(StatusReport, self).__init__(number, None, smsc)
@@ -146,10 +154,11 @@ class GsmModem(SerialComms):
     CUSD_REGEX = re.compile('\+CUSD:\s*(\d),\s*"(.*?)",\s*(\d+)', re.DOTALL)
     # Used for parsing SMS status reports
     CDSI_REGEX = re.compile('\+CDSI:\s*"([^"]+)",(\d+)$')
-    CDS_REGEX  = re.compile('\+CDS:\s*([0-9]+)"$')
+    CDS_REGEX = re.compile('\+CDS:\s*([0-9]+)"$')
 
     def __init__(self, port, baudrate=115200, incomingCallCallbackFunc=None, smsReceivedCallbackFunc=None, smsStatusReportCallback=None, dtmfReceivedCallback=None, requestDelivery=True, AT_CNMI="", *a, **kw):
-        super(GsmModem, self).__init__(port, baudrate, notifyCallbackFunc=self._handleModemNotification, *a, **kw)
+        super(GsmModem, self).__init__(port, baudrate,
+                                       notifyCallbackFunc=self._handleModemNotification, *a, **kw)
         self.incomingCallCallback = incomingCallCallbackFunc or self._placeholderCallback
         self.smsReceivedCallback = smsReceivedCallbackFunc or self._placeholderCallback
         self.smsStatusReportCallback = smsStatusReportCallback or self._placeholderCallback
@@ -164,28 +173,37 @@ class GsmModem(SerialComms):
         self.activeCalls = {}
         # Dict containing sent SMS messages (for auto-tracking their delivery status)
         self.sentSms = weakref.WeakValueDictionary()
-        self._ussdSessionEvent = None # threading.Event
-        self._ussdResponse = None # gsmmodem.modem.Ussd
-        self._smsStatusReportEvent = None # threading.Event
-        self._dialEvent = None # threading.Event
-        self._dialResponse = None # gsmmodem.modem.Call
-        self._waitForAtdResponse = True # Flag that controls if we should wait for an immediate response to ATD, or not
-        self._waitForCallInitUpdate = True # Flag that controls if we should wait for a ATD "call initiated" message
-        self._callStatusUpdates = [] # populated during connect() - contains regexes and handlers for detecting/handling call status updates
-        self._mustPollCallStatus = False # whether or not the modem must be polled for outgoing call status updates
-        self._pollCallStatusRegex = None # Regular expression used when polling outgoing call status
-        self._writeWait = 0 # Time (in seconds to wait after writing a command (adjusted when 515 errors are detected)
-        self._smsTextMode = False # Storage variable for the smsTextMode property
-        self._gsmBusy = 0 # Storage variable for the GSMBUSY property
-        self._smscNumber = None # Default SMSC number
-        self._smsRef = 0 # Sent SMS reference counter
-        self._smsMemReadDelete = None # Preferred message storage memory for reads/deletes (<mem1> parameter used for +CPMS)
-        self._smsMemWrite = None # Preferred message storage memory for writes (<mem2> parameter used for +CPMS)
-        self._smsReadSupported = True # Whether or not reading SMS messages is supported via AT commands
-        self._smsEncoding = 'GSM' # Default SMS encoding
-        self._smsSupportedEncodingNames = None # List of available encoding names
-        self._commands = None # List of supported AT commands
-        #Pool of detected DTMF
+        self._ussdSessionEvent = None  # threading.Event
+        self._ussdResponse = None  # gsmmodem.modem.Ussd
+        self._smsStatusReportEvent = None  # threading.Event
+        self._dialEvent = None  # threading.Event
+        self._dialResponse = None  # gsmmodem.modem.Call
+        # Flag that controls if we should wait for an immediate response to ATD, or not
+        self._waitForAtdResponse = True
+        # Flag that controls if we should wait for a ATD "call initiated" message
+        self._waitForCallInitUpdate = True
+        # populated during connect() - contains regexes and handlers for detecting/handling call status updates
+        self._callStatusUpdates = []
+        # whether or not the modem must be polled for outgoing call status updates
+        self._mustPollCallStatus = False
+        # Regular expression used when polling outgoing call status
+        self._pollCallStatusRegex = None
+        # Time (in seconds to wait after writing a command (adjusted when 515 errors are detected)
+        self._writeWait = 0
+        self._smsTextMode = False  # Storage variable for the smsTextMode property
+        self._gsmBusy = 0  # Storage variable for the GSMBUSY property
+        self._smscNumber = None  # Default SMSC number
+        self._smsRef = 0  # Sent SMS reference counter
+        # Preferred message storage memory for reads/deletes (<mem1> parameter used for +CPMS)
+        self._smsMemReadDelete = None
+        # Preferred message storage memory for writes (<mem2> parameter used for +CPMS)
+        self._smsMemWrite = None
+        # Whether or not reading SMS messages is supported via AT commands
+        self._smsReadSupported = True
+        self._smsEncoding = 'GSM'  # Default SMS encoding
+        self._smsSupportedEncodingNames = None  # List of available encoding names
+        self._commands = None  # List of supported AT commands
+        # Pool of detected DTMF
         self.dtmfpool = []
 
     def connect(self, pin=None, waitingForModemToStartInSeconds=0):
@@ -197,7 +215,8 @@ class GsmModem(SerialComms):
         :raise PinRequiredError: if the SIM card requires a PIN but none was provided
         :raise IncorrectPinError: if the specified PIN is incorrect
         """
-        self.log.info('Connecting to modem on port %s at %dbps', self.port, self.baudrate)
+        self.log.info('Connecting to modem on port %s at %dbps',
+                      self.port, self.baudrate)
         super(GsmModem, self).connect()
 
         if waitingForModemToStartInSeconds > 0:
@@ -210,7 +229,7 @@ class GsmModem(SerialComms):
 
         # Send some initialization commands to the modem
         try:
-            self.write('ATZ') # reset configuration
+            self.write('ATZ')  # reset configuration
         except CommandError:
             # Some modems require a SIM PIN at this stage already; unlock it now
             # Attempt to enable detailed error messages (to catch incorrect PIN error)
@@ -218,18 +237,20 @@ class GsmModem(SerialComms):
             self.write('AT+CMEE=1', parseError=False)
             self._unlockSim(pin)
             pinCheckComplete = True
-            self.write('ATZ') # reset configuration
+            self.write('ATZ')  # reset configuration
         else:
             pinCheckComplete = False
-        self.write('ATE0') # echo off
+        self.write('ATE0')  # echo off
         try:
-            cfun = int(lineStartingWith('+CFUN:', self.write('AT+CFUN?'))[7]) # example response: +CFUN: 1,0
+            # example response: +CFUN: 1,0
+            cfun = int(lineStartingWith('+CFUN:', self.write('AT+CFUN?'))[7])
             if cfun != 1:
                 self.write('AT+CFUN=1')
         except CommandError:
-            pass # just ignore if the +CFUN command isn't supported
+            pass  # just ignore if the +CFUN command isn't supported
 
-        self.write('AT+CMEE=1') # enable detailed error messages (even if it has already been set - ATZ may reset this)
+        # enable detailed error messages (even if it has already been set - ATZ may reset this)
+        self.write('AT+CMEE=1')
         if not pinCheckComplete:
             self._unlockSim(pin)
 
@@ -238,31 +259,33 @@ class GsmModem(SerialComms):
         self._commands = commands
 
         # Device-specific settings
-        callUpdateTableHint = 0 # unknown modem
+        callUpdateTableHint = 0  # unknown modem
         enableWind = False
         if commands != None:
             if '^CVOICE' in commands:
-                self.write('AT^CVOICE=0', parseError=False) # Enable voice calls
-            if '+VTS' in commands: # Check for DTMF sending support
+                # Enable voice calls
+                self.write('AT^CVOICE=0', parseError=False)
+            if '+VTS' in commands:  # Check for DTMF sending support
                 Call.dtmfSupport = True
             elif '^DTMF' in commands:
                 # Huawei modems use ^DTMF to send DTMF tones
-                callUpdateTableHint = 1 # Huawei
+                callUpdateTableHint = 1  # Huawei
             if '^USSDMODE' in commands:
                 # Enable Huawei text-mode USSD
                 self.write('AT^USSDMODE=0', parseError=False)
             if '+WIND' in commands:
-                callUpdateTableHint = 2 # Wavecom
+                callUpdateTableHint = 2  # Wavecom
                 enableWind = True
             elif '+ZPAS' in commands:
-                callUpdateTableHint = 3 # ZTE
+                callUpdateTableHint = 3  # ZTE
         else:
             # Try to enable general notifications on Wavecom-like device
             enableWind = True
 
         if enableWind:
             try:
-                wind = lineStartingWith('+WIND:', self.write('AT+WIND?')) # Check current WIND value; example response: +WIND: 63
+                # Check current WIND value; example response: +WIND: 63
+                wind = lineStartingWith('+WIND:', self.write('AT+WIND?'))
             except CommandError:
                 # Modem does not support +WIND notifications. See if we can detect other known call update notifications
                 pass
@@ -270,33 +293,35 @@ class GsmModem(SerialComms):
                 # Enable notifications for call setup, hangup, etc
                 if int(wind[7:]) != 50:
                     self.write('AT+WIND=50')
-                callUpdateTableHint = 2 # Wavecom
+                callUpdateTableHint = 2  # Wavecom
 
         if self.model == "LARA-R211":
             callUpdateTableHint = 4
 
         # Attempt to identify modem type directly (if not already) - for outgoing call status updates
         if callUpdateTableHint == 0:
-            if 'simcom' in self.manufacturer.lower() : #simcom modems support DTMF and don't support AT+CLAC
+            if 'simcom' in self.manufacturer.lower():  # simcom modems support DTMF and don't support AT+CLAC
                 Call.dtmfSupport = True
-                self.write('AT+DDET=1')                # enable detect incoming DTMF
+                # enable detect incoming DTMF
+                self.write('AT+DDET=1')
 
             if self.manufacturer.lower() == 'huawei':
-                callUpdateTableHint = 1 # huawei
+                callUpdateTableHint = 1  # huawei
             else:
                 # See if this is a ZTE modem that has not yet been identified based on supported commands
                 try:
                     self.write('AT+ZPAS?')
                 except CommandError:
-                    pass # Not a ZTE modem
+                    pass  # Not a ZTE modem
                 else:
-                    callUpdateTableHint = 3 # ZTE
+                    callUpdateTableHint = 3  # ZTE
         # Load outgoing call status updates based on identified modem features
         if callUpdateTableHint == 1:
             # Use Hauwei's ^NOTIFICATIONs
             self.log.info('Loading Huawei call state update table')
             self._callStatusUpdates = ((re.compile('^\^ORIG:(\d),(\d)$'), self._handleCallInitiated),
-                                       (re.compile('^\^CONN:(\d),(\d)$'), self._handleCallAnswered),
+                                       (re.compile('^\^CONN:(\d),(\d)$'),
+                                        self._handleCallAnswered),
                                        (re.compile('^\^CEND:(\d),(\d+),(\d)+,(\d)+$'), self._handleCallEnded))
             self._mustPollCallStatus = False
             # Huawei modems use ^DTMF to send DTMF tones; use that instead
@@ -306,57 +331,72 @@ class GsmModem(SerialComms):
             # Wavecom modem: +WIND notifications supported
             self.log.info('Loading Wavecom call state update table')
             self._callStatusUpdates = ((re.compile('^\+WIND: 5,(\d)$'), self._handleCallInitiated),
-                                      (re.compile('^OK$'), self._handleCallAnswered),
-                                      (re.compile('^\+WIND: 6,(\d)$'), self._handleCallEnded))
-            self._waitForAtdResponse = False # Wavecom modems return OK only when the call is answered
+                                       (re.compile('^OK$'),
+                                        self._handleCallAnswered),
+                                       (re.compile('^\+WIND: 6,(\d)$'), self._handleCallEnded))
+            # Wavecom modems return OK only when the call is answered
+            self._waitForAtdResponse = False
             self._mustPollCallStatus = False
-            if commands == None: # older modem, assume it has standard DTMF support
+            if commands == None:  # older modem, assume it has standard DTMF support
                 Call.dtmfSupport = True
-        elif callUpdateTableHint == 3: # ZTE
+        elif callUpdateTableHint == 3:  # ZTE
             # Use ZTE notifications ("CONNECT"/"HANGUP", but no "call initiated" notification)
             self.log.info('Loading ZTE call state update table')
             self._callStatusUpdates = ((re.compile('^CONNECT$'), self._handleCallAnswered),
-                                       (re.compile('^HANGUP:\s*(\d+)$'), self._handleCallEnded),
+                                       (re.compile('^HANGUP:\s*(\d+)$'),
+                                        self._handleCallEnded),
                                        (re.compile('^OK$'), self._handleCallRejected))
-            self._waitForAtdResponse = False # ZTE modems do not return an immediate  OK only when the call is answered
+            # ZTE modems do not return an immediate  OK only when the call is answered
+            self._waitForAtdResponse = False
             self._mustPollCallStatus = False
-            self._waitForCallInitUpdate = False # ZTE modems do not provide "call initiated" updates
-            if commands == None: # ZTE uses standard +VTS for DTMF
+            # ZTE modems do not provide "call initiated" updates
+            self._waitForCallInitUpdate = False
+            if commands == None:  # ZTE uses standard +VTS for DTMF
                 Call.dtmfSupport = True
 
-        elif callUpdateTableHint == 4: # LARA-R211
+        elif callUpdateTableHint == 4:  # LARA-R211
             self.log.info('Loading ZTE call state update table')
             self._callStatusUpdates = ((re.compile('^\+UCALLSTAT:\s*(\d+),(0|7)$'), self._handleCallAnswered),
-                                       (re.compile('^NO\s*CARRIER$'), self._handleCallEnded),
+                                       (re.compile('^NO\s*CARRIER$'),
+                                        self._handleCallEnded),
                                        (re.compile('^NO\s*CARRIER|ANSWER$'), self._handleCallRejected))
-            self._waitForAtdResponse = True # Most modems return OK immediately after issuing ATD
+            # Most modems return OK immediately after issuing ATD
+            self._waitForAtdResponse = True
             self._mustPollCallStatus = False
             self._waitForCallInitUpdate = False
         else:
             # Unknown modem - we do not know what its call updates look like. Use polling instead
-            self.log.info('Unknown/generic modem type - will use polling for call state updates')
+            self.log.info(
+                'Unknown/generic modem type - will use polling for call state updates')
             self._mustPollCallStatus = True
-            self._pollCallStatusRegex = re.compile('^\+CLCC:\s+(\d+),(\d),(\d),(\d),([^,]),"([^,]*)",(\d+)$')
-            self._waitForAtdResponse = True # Most modems return OK immediately after issuing ATD
+            self._pollCallStatusRegex = re.compile(
+                '^\+CLCC:\s+(\d+),(\d),(\d),(\d),([^,]),"([^,]*)",(\d+)$')
+            # Most modems return OK immediately after issuing ATD
+            self._waitForAtdResponse = True
 
         # General meta-information setup
-        self.write('AT+COPS=3,0', parseError=False) # Use long alphanumeric name format
+        # Use long alphanumeric name format
+        self.write('AT+COPS=3,0', parseError=False)
 
         # SMS setup
-        self.write('AT+CMGF={0}'.format(1 if self.smsTextMode else 0)) # Switch to text or PDU mode for SMS messages
+        # Switch to text or PDU mode for SMS messages
+        self.write('AT+CMGF={0}'.format(1 if self.smsTextMode else 0))
         self._compileSmsRegexes()
         if self._smscNumber != None:
-            self.write('AT+CSCA="{0}"'.format(self._smscNumber)) # Set default SMSC number
+            # Set default SMSC number
+            self.write('AT+CSCA="{0}"'.format(self._smscNumber))
             currentSmscNumber = self._smscNumber
         else:
             currentSmscNumber = self.smsc
         # Some modems delete the SMSC number when setting text-mode SMS parameters; preserve it if needed
         if currentSmscNumber != None:
-            self._smscNumber = None # clear cache
+            self._smscNumber = None  # clear cache
         if self.requestDelivery:
-            self.write('AT+CSMP=49,167,0,0', parseError=False) # Enable delivery reports
+            # Enable delivery reports
+            self.write('AT+CSMP=49,167,0,0', parseError=False)
         else:
-            self.write('AT+CSMP=17,167,0,0', parseError=False) # Not enable delivery reports
+            # Not enable delivery reports
+            self.write('AT+CSMP=17,167,0,0', parseError=False)
         # ...check SMSC again to ensure it did not change
         if currentSmscNumber != None and self.smsc != currentSmscNumber:
             self.smsc = currentSmscNumber
@@ -367,7 +407,8 @@ class GsmModem(SerialComms):
         except CommandError:
             # Modem does not support AT+CPMS; SMS reading unavailable
             self._smsReadSupported = False
-            self.log.warning('SMS preferred message storage query not supported by modem. SMS reading unavailable.')
+            self.log.warning(
+                'SMS preferred message storage query not supported by modem. SMS reading unavailable.')
         else:
             cpmsSupport = cpmsLine.split(' ', 1)[1].split('),(')
             # Do a sanity check on the memory types returned - Nokia S60 devices return empty strings, for example
@@ -375,7 +416,8 @@ class GsmModem(SerialComms):
                 if len(memItem) == 0:
                     # No support for reading stored SMS via AT commands - probably a Nokia S60
                     self._smsReadSupported = False
-                    self.log.warning('Invalid SMS message storage support returned by modem. SMS reading unavailable. Response was: "%s"', cpmsLine)
+                    self.log.warning(
+                        'Invalid SMS message storage support returned by modem. SMS reading unavailable. Response was: "%s"', cpmsLine)
                     break
             else:
                 # Suppported memory types look fine, continue
@@ -388,45 +430,55 @@ class GsmModem(SerialComms):
                                 self._smsMemReadDelete = memType
                             cpmsItems[i] = memType
                             break
-                self.write('AT+CPMS={0}'.format(','.join(cpmsItems))) # Set message storage
+                # Set message storage
+                self.write('AT+CPMS={0}'.format(','.join(cpmsItems)))
             del cpmsSupport
             del cpmsLine
 
         if self._smsReadSupported and (self.smsReceivedCallback or self.smsStatusReportCallback):
             try:
-                self.write('AT+CNMI=' + self.AT_CNMI)  # Set message notifications
+                # Set message notifications
+                self.write('AT+CNMI=' + self.AT_CNMI)
             except CommandError:
                 try:
-                    self.write('AT+CNMI=2,1,0,1,0') # Set message notifications, using TE for delivery reports <ds>
+                    # Set message notifications, using TE for delivery reports <ds>
+                    self.write('AT+CNMI=2,1,0,1,0')
                 except CommandError:
                     # Message notifications not supported
                     self._smsReadSupported = False
-                    self.log.warning('Incoming SMS notifications not supported by modem. SMS receiving unavailable.')
+                    self.log.warning(
+                        'Incoming SMS notifications not supported by modem. SMS receiving unavailable.')
 
         # Incoming call notification setup
         try:
-            self.write('AT+CLIP=1') # Enable calling line identification presentation
+            # Enable calling line identification presentation
+            self.write('AT+CLIP=1')
         except CommandError as clipError:
             self._callingLineIdentification = False
-            self.log.warning('Incoming call calling line identification (caller ID) not supported by modem. Error: {0}'.format(clipError))
+            self.log.warning(
+                'Incoming call calling line identification (caller ID) not supported by modem. Error: {0}'.format(clipError))
         else:
             self._callingLineIdentification = True
             try:
-                self.write('AT+CRC=1') # Enable extended format of incoming indication (optional)
+                # Enable extended format of incoming indication (optional)
+                self.write('AT+CRC=1')
             except CommandError as crcError:
                 self._extendedIncomingCallIndication = False
-                self.log.warning('Extended format incoming call indication not supported by modem. Error: {0}'.format(crcError))
+                self.log.warning(
+                    'Extended format incoming call indication not supported by modem. Error: {0}'.format(crcError))
             else:
                 self._extendedIncomingCallIndication = True
 
         # Call control setup
-        self.write('AT+CVHU=0', parseError=False) # Enable call hang-up with ATH command (ignore if command not supported)
+        # Enable call hang-up with ATH command (ignore if command not supported)
+        self.write('AT+CVHU=0', parseError=False)
 
     def _unlockSim(self, pin):
         """ Unlocks the SIM card using the specified PIN (if necessary, else does nothing) """
         # Unlock the SIM card if needed
         try:
-            cpinResponse = lineStartingWith('+CPIN', self.write('AT+CPIN?', timeout=15))
+            cpinResponse = lineStartingWith(
+                '+CPIN', self.write('AT+CPIN?', timeout=15))
         except TimeoutException as timeout:
             # Wavecom modems do not end +CPIN responses with "OK" (github issue #19) - see if just the +CPIN response was returned
             if timeout.data != None:
@@ -459,6 +511,44 @@ class GsmModem(SerialComms):
     def enableCallStatusUpdates(self):
         return self.write("AT+UCALLSTAT=1")
 
+    def setAutomaticNetworkSelection(self):
+        self.write("AT+COPS=0")
+
+    def setManualNetworkSelection(self, format, network):
+        self.write('AT+COPS=1,{},"{}"'.format(format, network))
+
+    def enableDataSession(self, enable):
+        self.write("AT+CGACT={},1".format(int(enable)))
+
+    def getAvailableNetworks(self):
+        cops = self.write("AT+COPS=?", timeout=60).split(" ")[1].split("),(")
+
+        # Remove brackets from first and last network
+        cops[0] = cops[0].replace('(', '')
+        cops[len(cops)-1] = cops[len(cops)-1].replace(')', '')
+
+        # Create Dictionary
+        networks = []
+        for network in cops:
+            network = network.replace('"', '').split(',')
+            networks.append({'status': network[0], 'operator_long': network[1], 'operator_short': network[2],
+                             'operator_numeric': network[3], 'access_technology': network[4]})
+        return networks
+
+    def getPreferredNetworks(self):
+        cpol = self.write("AT+CPOL?").cpol.split('\n\n')
+
+        # Remove "OK"
+        cpol.remove("OK")
+
+        # Create Dictionary
+        networks = []
+        for network in cpol:
+            network = network.replace('"', '').split(' ')[1].split(',')
+            networks.append({'index': network[0], 'format': network[1], 'operator': network[2], 'gsm_act': network[3],
+                             'gsm_compact_act': network[4], 'utran_act': network[5], 'eutran_act': network[6]})
+        return networks
+
     def write(self, data, waitForResponse=True, timeout=10, parseError=True, writeTerm=TERMINATOR, expectedResponseTermSeq=None):
         """ Write data to the modem.
 
@@ -486,8 +576,10 @@ class GsmModem(SerialComms):
         """
 
         self.log.debug('write: %s', data)
-        responseLines = super(GsmModem, self).write(data + writeTerm, waitForResponse=waitForResponse, timeout=timeout, expectedResponseTermSeq=expectedResponseTermSeq)
-        if self._writeWait > 0: # Sleep a bit if required (some older modems suffer under load)
+        responseLines = super(GsmModem, self).write(data + writeTerm, waitForResponse=waitForResponse,
+                                                    timeout=timeout, expectedResponseTermSeq=expectedResponseTermSeq)
+        # Sleep a bit if required (some older modems suffer under load)
+        if self._writeWait > 0:
             time.sleep(self._writeWait)
         if waitForResponse:
             cmdStatusLine = responseLines[-1]
@@ -500,25 +592,29 @@ class GsmModem(SerialComms):
                         if errorCode == 515 or errorCode == 14:
                             # 515 means: "Please wait, init or command processing in progress."
                             # 14 means "SIM busy"
-                            self._writeWait += 0.2 # Increase waiting period temporarily
+                            self._writeWait += 0.2  # Increase waiting period temporarily
                             # Retry the command after waiting a bit
-                            self.log.debug('Device/SIM busy error detected; self._writeWait adjusted to %fs', self._writeWait)
+                            self.log.debug(
+                                'Device/SIM busy error detected; self._writeWait adjusted to %fs', self._writeWait)
                             time.sleep(self._writeWait)
-                            result = self.write(data, waitForResponse, timeout, parseError, writeTerm, expectedResponseTermSeq)
-                            self.log.debug('self_writeWait set to 0.1 because of recovering from device busy (515) error')
+                            result = self.write(
+                                data, waitForResponse, timeout, parseError, writeTerm, expectedResponseTermSeq)
+                            self.log.debug(
+                                'self_writeWait set to 0.1 because of recovering from device busy (515) error')
                             if errorCode == 515:
-                                self._writeWait = 0.1 # Set this to something sane for further commands (slow modem)
+                                # Set this to something sane for further commands (slow modem)
+                                self._writeWait = 0.1
                             else:
-                                self._writeWait = 0 # The modem was just waiting for the SIM card
+                                self._writeWait = 0  # The modem was just waiting for the SIM card
                             return result
                         if errorType == 'CME':
                             raise CmeError(data, int(errorCode))
-                        else: # CMS error
+                        else:  # CMS error
                             raise CmsError(data, int(errorCode))
                     else:
                         raise CommandError(data)
-                elif cmdStatusLine == 'COMMAND NOT SUPPORT': # Some Huawei modems respond with this for unknown commands
-                    raise CommandError('{} ({})'.format(data,cmdStatusLine))
+                elif cmdStatusLine == 'COMMAND NOT SUPPORT':  # Some Huawei modems respond with this for unknown commands
+                    raise CommandError('{} ({})'.format(data, cmdStatusLine))
             return responseLines
 
     def signalStrengthExtended(self):
@@ -600,7 +696,8 @@ class GsmModem(SerialComms):
     @property
     def networkName(self):
         """ :return: the name of the GSM Network Operator to which the modem is connected """
-        copsMatch = lineMatching('^\+COPS: (\d),(\d),"(.+)",{0,1}\d*$', self.write('AT+COPS?')) # response format: +COPS: mode,format,"operator_name",x
+        copsMatch = lineMatching('^\+COPS: (\d),(\d),"(.+)",{0,1}\d*$', self.write(
+            'AT+COPS?'))  # response format: +COPS: mode,format,"operator_name",x
         if copsMatch:
             return copsMatch.group(3)
 
@@ -611,15 +708,17 @@ class GsmModem(SerialComms):
             # AT+CLAC responses differ between modems. Most respond with +CLAC: and then a comma-separated list of commands
             # while others simply return each command on a new line, with no +CLAC: prefix
             response = self.write('AT+CLAC', timeout=20)
-            if len(response) == 2: # Single-line response, comma separated
+            if len(response) == 2:  # Single-line response, comma separated
                 commands = response[0]
                 if commands.startswith('+CLAC'):
-                    commands = commands[6:] # remove the +CLAC: prefix before splitting
+                    # remove the +CLAC: prefix before splitting
+                    commands = commands[6:]
                 return commands.split(',')
-            elif len(response) > 2: # Multi-line response
+            elif len(response) > 2:  # Multi-line response
                 return [cmd.strip() for cmd in response[:-1]]
             else:
-                self.log.debug('Unhandled +CLAC response: {0}'.format(response))
+                self.log.debug(
+                    'Unhandled +CLAC response: {0}'.format(response))
                 return None
         except (TimeoutException, CommandError):
             # Try interactive command recognition
@@ -636,7 +735,7 @@ class GsmModem(SerialComms):
             for command in checkable_commands:
                 try:
                     # Compose AT command that will read values under specified function
-                    at_command='AT'+command+'=?'
+                    at_command = 'AT'+command+'=?'
                     response = self.write(at_command)
                     # If there are values inside response - add command to the list
                     commands.append(command)
@@ -653,6 +752,7 @@ class GsmModem(SerialComms):
     def smsTextMode(self):
         """ :return: True if the modem is set to use text mode for SMS, False if it is set to use PDU mode """
         return self._smsTextMode
+
     @smsTextMode.setter
     def smsTextMode(self, textMode):
         """ Set to True for the modem to use text mode for SMS, or False for it to use PDU mode """
@@ -692,7 +792,7 @@ class GsmModem(SerialComms):
         # Extract encoding names list
         try:
             enc_list = response[0]  # Get the first line
-            enc_list = enc_list[6:] # Remove '+CSCS: ' prefix
+            enc_list = enc_list[6:]  # Remove '+CSCS: ' prefix
             # Extract AT list in format ("str", "str2", "str3")
             enc_list = enc_list.split('(')[1]
             enc_list = enc_list.split(')')[0]
@@ -721,15 +821,19 @@ class GsmModem(SerialComms):
             if len(response) == 2:
                 encoding = response[0]
                 if encoding.startswith('+CSCS'):
-                    encoding = encoding[6:].split('"') # remove the +CSCS: prefix before splitting
+                    # remove the +CSCS: prefix before splitting
+                    encoding = encoding[6:].split('"')
                     if len(encoding) == 3:
                         self._smsEncoding = encoding[1]
                     else:
-                        self.log.debug('Unhandled +CSCS response: {0}'.format(response))
+                        self.log.debug(
+                            'Unhandled +CSCS response: {0}'.format(response))
             else:
-                self.log.debug('Unhandled +CSCS response: {0}'.format(response))
+                self.log.debug(
+                    'Unhandled +CSCS response: {0}'.format(response))
 
         return self._smsEncoding
+
     @smsEncoding.setter
     def smsEncoding(self, encoding):
         """ Set encoding for SMS inside PDU mode.
@@ -743,13 +847,15 @@ class GsmModem(SerialComms):
 
         if self._commands == None:
             if encoding != self._smsEncoding:
-                raise CommandError('Unable to set SMS encoding (no supported commands)')
+                raise CommandError(
+                    'Unable to set SMS encoding (no supported commands)')
             else:
                 return
 
         if not '+CSCS' in self._commands:
             if encoding != self._smsEncoding:
-                raise CommandError('Unable to set SMS encoding (+CSCS command not supported)')
+                raise CommandError(
+                    'Unable to set SMS encoding (+CSCS command not supported)')
             else:
                 return
 
@@ -767,7 +873,8 @@ class GsmModem(SerialComms):
                     return
 
         if encoding != self._smsEncoding:
-            raise ValueError('Unable to set SMS encoding (enocoding {0} not supported)'.format(encoding))
+            raise ValueError(
+                'Unable to set SMS encoding (enocoding {0} not supported)'.format(encoding))
         else:
             return
 
@@ -787,22 +894,26 @@ class GsmModem(SerialComms):
         """ Compiles regular expression used for parsing SMS messages based on current mode """
         if self.smsTextMode:
             if self.CMGR_SM_DELIVER_REGEX_TEXT == None:
-                self.CMGR_SM_DELIVER_REGEX_TEXT = re.compile('^\+CMGR: "([^"]+)","([^"]+)",[^,]*,"([^"]+)"$')
-                self.CMGR_SM_REPORT_REGEXT_TEXT = re.compile('^\+CMGR: ([^,]*),\d+,(\d+),"{0,1}([^"]*)"{0,1},\d*,"([^"]+)","([^"]+)",(\d+)$')
+                self.CMGR_SM_DELIVER_REGEX_TEXT = re.compile(
+                    '^\+CMGR: "([^"]+)","([^"]+)",[^,]*,"([^"]+)"$')
+                self.CMGR_SM_REPORT_REGEXT_TEXT = re.compile(
+                    '^\+CMGR: ([^,]*),\d+,(\d+),"{0,1}([^"]*)"{0,1},\d*,"([^"]+)","([^"]+)",(\d+)$')
         elif self.CMGR_REGEX_PDU == None:
-            self.CMGR_REGEX_PDU = re.compile('^\+CMGR:\s*(\d*),\s*"{0,1}([^"]*)"{0,1},\s*(\d+)$')
+            self.CMGR_REGEX_PDU = re.compile(
+                '^\+CMGR:\s*(\d*),\s*"{0,1}([^"]*)"{0,1},\s*(\d+)$')
 
     @property
     def gsmBusy(self):
         """ :return: Current GSMBUSY state """
         try:
             response = self.write('AT+GSMBUSY?')
-            response = response[0] # Get the first line
-            response = response[10] # Remove '+GSMBUSY: ' prefix
+            response = response[0]  # Get the first line
+            response = response[10]  # Remove '+GSMBUSY: ' prefix
             self._gsmBusy = response
         except:
-            pass # If error is related to ME funtionality: +CME ERROR: <error>
+            pass  # If error is related to ME funtionality: +CME ERROR: <error>
         return self._gsmBusy
+
     @gsmBusy.setter
     def gsmBusy(self, gsmBusy):
         """ Set GSMBUSY state """
@@ -818,12 +929,14 @@ class GsmModem(SerialComms):
             try:
                 readSmsc = self.write('AT+CSCA?')
             except SmscNumberUnknownError:
-                pass # Some modems return a CMS 330 error if the value isn't set
+                pass  # Some modems return a CMS 330 error if the value isn't set
             else:
-                cscaMatch = lineMatching('\+CSCA:\s*"([^,]+)",(\d+)$', readSmsc)
+                cscaMatch = lineMatching(
+                    '\+CSCA:\s*"([^,]+)",(\d+)$', readSmsc)
                 if cscaMatch:
                     self._smscNumber = cscaMatch.group(1)
         return self._smscNumber
+
     @smsc.setter
     def smsc(self, smscNumber):
         """ Set the default SMSC number to use when sending SMS messages """
@@ -852,7 +965,8 @@ class GsmModem(SerialComms):
             else:
                 # temporarily switch to "own numbers" phonebook, read position 1 and than switch back
                 response = self.write('AT+CPBS?')
-                selected_phonebook = response[0][6:].split('"')[1] # first line, remove the +CSCS: prefix, split, first parameter
+                # first line, remove the +CSCS: prefix, split, first parameter
+                selected_phonebook = response[0][6:].split('"')[1]
 
                 if selected_phonebook is not "ON":
                     self.write('AT+CPBS="ON"')
@@ -860,18 +974,20 @@ class GsmModem(SerialComms):
                 response = self.write("AT+CPBR=1")
                 self.write('AT+CPBS="{0}"'.format(selected_phonebook))
 
-            if response is "OK": # command is supported, but no number is set
+            if response is "OK":  # command is supported, but no number is set
                 return None
-            elif len(response) == 2: # OK and phone number. Actual number is in the first line, second parameter, and is placed inside quotation marks
+            elif len(response) == 2:  # OK and phone number. Actual number is in the first line, second parameter, and is placed inside quotation marks
                 cnumLine = response[0]
                 cnumMatch = self.CNUM_REGEX.match(cnumLine)
                 if cnumMatch:
                     return cnumMatch.group(1)
                 else:
-                    self.log.debug('Error parse +CNUM response: {0}'.format(response))
+                    self.log.debug(
+                        'Error parse +CNUM response: {0}'.format(response))
                     return None
-            elif len(response) > 2: # Multi-line response
-                self.log.debug('Unhandled +CNUM/+CPBS response: {0}'.format(response))
+            elif len(response) > 2:  # Multi-line response
+                self.log.debug(
+                    'Unhandled +CNUM/+CPBS response: {0}'.format(response))
                 return None
 
         except (TimeoutException, CommandError):
@@ -883,7 +999,6 @@ class GsmModem(SerialComms):
         if actual_phonebook is not "ON":
             self.write('AT+CPBS="ON"')
         self.write('AT+CPBW=1,"' + phone_number + '"')
-
 
     def waitForNetworkCoverage(self, timeout=None):
         """ Block until the modem has GSM network coverage.
@@ -911,7 +1026,8 @@ class GsmModem(SerialComms):
         checkCreg = True
         while block[0]:
             if checkCreg:
-                cregResult = lineMatching('^\+CREG:\s*(\d),(\d)(,[^,]*,[^,]*)?$', self.write('AT+CREG?', parseError=False)) # example result: +CREG: 0,1
+                cregResult = lineMatching('^\+CREG:\s*(\d),(\d)(,[^,]*,[^,]*)?$', self.write(
+                    'AT+CREG?', parseError=False))  # example result: +CREG: 0,1
                 if cregResult:
                     status = int(cregResult.group(2))
                     if status in (1, 5):
@@ -919,12 +1035,15 @@ class GsmModem(SerialComms):
                         # Now simply check and return network signal strength
                         checkCreg = False
                     elif status == 3:
-                        raise InvalidStateException('Network registration denied')
+                        raise InvalidStateException(
+                            'Network registration denied')
                     elif status == 0:
-                        raise InvalidStateException('Device not searching for network operator')
+                        raise InvalidStateException(
+                            'Device not searching for network operator')
                 else:
                     # Disable network registration check; only use signal strength
-                    self.log.info('+CREG check disabled due to invalid response or unsupported command')
+                    self.log.info(
+                        '+CREG check disabled due to invalid response or unsupported command')
                     checkCreg = False
             else:
                 # Check signal strength
@@ -961,8 +1080,10 @@ class GsmModem(SerialComms):
 
         if self.smsTextMode:
             # Send SMS via AT commands
-            self.write('AT+CMGS="{0}"'.format(destination), timeout=5, expectedResponseTermSeq='> ')
-            result = lineStartingWith('+CMGS:', self.write(text, timeout=35, writeTerm=CTRLZ))
+            self.write('AT+CMGS="{0}"'.format(destination),
+                       timeout=5, expectedResponseTermSeq='> ')
+            result = lineStartingWith(
+                '+CMGS:', self.write(text, timeout=35, writeTerm=CTRLZ))
         else:
             # Check encoding
             try:
@@ -979,12 +1100,15 @@ class GsmModem(SerialComms):
                 self.smsEncoding = 'GSM'
 
             # Encode text into PDUs
-            pdus = encodeSmsSubmitPdu(destination, text, reference=self._smsRef, sendFlash=sendFlash)
+            pdus = encodeSmsSubmitPdu(
+                destination, text, reference=self._smsRef, sendFlash=sendFlash)
 
             # Send SMS PDUs via AT commands
             for pdu in pdus:
-                self.write('AT+CMGS={0}'.format(pdu.tpduLength), timeout=5, expectedResponseTermSeq='> ')
-                result = lineStartingWith('+CMGS:', self.write(str(pdu), timeout=35, writeTerm=CTRLZ)) # example: +CMGS: xx
+                self.write('AT+CMGS={0}'.format(pdu.tpduLength),
+                           timeout=5, expectedResponseTermSeq='> ')
+                result = lineStartingWith(
+                    '+CMGS:', self.write(str(pdu), timeout=35, writeTerm=CTRLZ))  # example: +CMGS: xx
 
         if result == None:
             raise CommandError('Modem did not respond with +CMGS response')
@@ -1004,7 +1128,7 @@ class GsmModem(SerialComms):
             self._smsStatusReportEvent = threading.Event()
             if self._smsStatusReportEvent.wait(deliveryTimeout):
                 self._smsStatusReportEvent = None
-            else: # Response timed out
+            else:  # Response timed out
                 self._smsStatusReportEvent = None
                 raise TimeoutException()
         return sms
@@ -1023,25 +1147,26 @@ class GsmModem(SerialComms):
         """
         self._ussdSessionEvent = threading.Event()
         try:
-            cusdResponse = self.write('AT+CUSD=1,"{0}",15'.format(ussdString), timeout=responseTimeout) # Should respond with "OK"
+            # Should respond with "OK"
+            cusdResponse = self.write(
+                'AT+CUSD=1,"{0}",15'.format(ussdString), timeout=responseTimeout)
         except Exception:
-            self._ussdSessionEvent = None # Cancel the thread sync lock
+            self._ussdSessionEvent = None  # Cancel the thread sync lock
             raise
 
         # Some modems issue the +CUSD response before the acknowledgment "OK" - check for that
         if len(cusdResponse) > 1:
             cusdResponseFound = lineStartingWith('+CUSD', cusdResponse) != None
             if cusdResponseFound:
-                self._ussdSessionEvent = None # Cancel thread sync lock
+                self._ussdSessionEvent = None  # Cancel thread sync lock
                 return self._parseCusdResponse(cusdResponse)
         # Wait for the +CUSD notification message
         if self._ussdSessionEvent.wait(responseTimeout):
             self._ussdSessionEvent = None
             return self._ussdResponse
-        else: # Response timed out
+        else:  # Response timed out
             self._ussdSessionEvent = None
             raise TimeoutException()
-
 
     def checkForwarding(self, querytype, responseTimeout=15):
         """ Check forwarding status: 0=Unconditional, 1=Busy, 2=NoReply, 3=NotReach, 4=AllFwd, 5=AllCondFwd
@@ -1051,12 +1176,13 @@ class GsmModem(SerialComms):
         :rtype: Boolean
         """
         try:
-            queryResponse = self.write('AT+CCFC={0},2'.format(querytype), timeout=responseTimeout) # Should respond with "OK"
+            # Should respond with "OK"
+            queryResponse = self.write(
+                'AT+CCFC={0},2'.format(querytype), timeout=responseTimeout)
         except Exception:
             raise
         print(queryResponse)
         return True
-
 
     def setForwarding(self, fwdType, fwdEnable, fwdNumber, responseTimeout=15):
         """ Check forwarding status: 0=Unconditional, 1=Busy, 2=NoReply, 3=NotReach, 4=AllFwd, 5=AllCondFwd
@@ -1068,7 +1194,8 @@ class GsmModem(SerialComms):
         :rtype: Boolean
         """
         try:
-            queryResponse = self.write('AT+CCFC={0},{1},"{2}"'.format(fwdType, fwdEnable, fwdNumber), timeout=responseTimeout) # Should respond with "OK"
+            queryResponse = self.write('AT+CCFC={0},{1},"{2}"'.format(
+                fwdType, fwdEnable, fwdNumber), timeout=responseTimeout)  # Should respond with "OK"
         except Exception:
             raise
             return False
@@ -1090,31 +1217,36 @@ class GsmModem(SerialComms):
             # Wait for the "call originated" notification message
             self._dialEvent = threading.Event()
             try:
-                self.write('ATD{0};'.format(number), timeout=timeout, waitForResponse=self._waitForAtdResponse)
+                self.write('ATD{0};'.format(number), timeout=timeout,
+                           waitForResponse=self._waitForAtdResponse)
             except Exception:
-                self._dialEvent = None # Cancel the thread sync lock
+                self._dialEvent = None  # Cancel the thread sync lock
                 raise
         else:
             # Don't wait for a call init update - base the call ID on the number of active calls
-            self.write('ATD{0};'.format(number), timeout=timeout, waitForResponse=self._waitForAtdResponse)
+            self.write('ATD{0};'.format(number), timeout=timeout,
+                       waitForResponse=self._waitForAtdResponse)
             self.log.debug("Not waiting for outgoing call init update message")
             callId = len(self.activeCalls) + 1
-            callType = 0 # Assume voice
-            call = Call(self, callId, callType, number, callStatusUpdateCallbackFunc)
+            callType = 0  # Assume voice
+            call = Call(self, callId, callType, number,
+                        callStatusUpdateCallbackFunc)
             self.activeCalls[callId] = call
             return call
 
         if self._mustPollCallStatus:
             # Fake a call notification by polling call status until the status indicates that the call is being dialed
-            threading.Thread(target=self._pollCallStatus, kwargs={'expectedState': 0, 'timeout': timeout}).start()
+            threading.Thread(target=self._pollCallStatus, kwargs={
+                             'expectedState': 0, 'timeout': timeout}).start()
 
         if self._dialEvent.wait(timeout):
             self._dialEvent = None
             callId, callType = self._dialResponse
-            call = Call(self, callId, callType, number, callStatusUpdateCallbackFunc)
+            call = Call(self, callId, callType, number,
+                        callStatusUpdateCallbackFunc)
             self.activeCalls[callId] = call
             return call
-        else: # Call establishing timed out
+        else:  # Call establishing timed out
             self._dialEvent = None
             raise TimeoutException()
 
@@ -1160,7 +1292,8 @@ class GsmModem(SerialComms):
         messages = []
         delMessages = set()
         if self.smsTextMode:
-            cmglRegex= re.compile('^\+CMGL: (\d+),"([^"]+)","([^"]+)",[^,]*,"([^"]+)"$')
+            cmglRegex = re.compile(
+                '^\+CMGL: (\d+),"([^"]+)","([^"]+)",[^,]*,"([^"]+)"$')
             for key, val in dictItemsIter(Sms.TEXT_MODE_STATUS_MAP):
                 if status == val:
                     statusStr = key
@@ -1177,7 +1310,8 @@ class GsmModem(SerialComms):
                     if msgIndex != None and len(msgLines) > 0:
                         msgText = '\n'.join(msgLines)
                         msgLines = []
-                        messages.append(ReceivedSms(self, Sms.TEXT_MODE_STATUS_MAP[msgStatus], number, parseTextModeTimeStr(msgTime), msgText))
+                        messages.append(ReceivedSms(
+                            self, Sms.TEXT_MODE_STATUS_MAP[msgStatus], number, parseTextModeTimeStr(msgTime), msgText))
                         delMessages.add(int(msgIndex))
                     msgIndex, msgStatus, number, msgTime = cmglMatch.groups()
                     msgLines = []
@@ -1187,7 +1321,8 @@ class GsmModem(SerialComms):
             if msgIndex != None and len(msgLines) > 0:
                 msgText = '\n'.join(msgLines)
                 msgLines = []
-                messages.append(ReceivedSms(self, Sms.TEXT_MODE_STATUS_MAP[msgStatus], number, parseTextModeTimeStr(msgTime), msgText))
+                messages.append(ReceivedSms(
+                    self, Sms.TEXT_MODE_STATUS_MAP[msgStatus], number, parseTextModeTimeStr(msgTime), msgText))
                 delMessages.add(int(msgIndex))
         else:
             cmglRegex = re.compile('^\+CMGL:\s*(\d+),\s*(\d+),.*$')
@@ -1204,18 +1339,22 @@ class GsmModem(SerialComms):
                     try:
                         smsDict = decodeSmsPdu(line)
                     except EncodingError:
-                        self.log.debug('Discarding line from +CMGL response: %s', line)
+                        self.log.debug(
+                            'Discarding line from +CMGL response: %s', line)
                     except:
                         pass
                         # dirty fix warning: https://github.com/yuriykashin/python-gsmmodem/issues/1
                         # todo: make better fix
                     else:
                         if smsDict['type'] == 'SMS-DELIVER':
-                            sms = ReceivedSms(self, int(msgStat), smsDict['number'], smsDict['time'], smsDict['text'], smsDict['smsc'], smsDict.get('udh', []))
+                            sms = ReceivedSms(self, int(
+                                msgStat), smsDict['number'], smsDict['time'], smsDict['text'], smsDict['smsc'], smsDict.get('udh', []))
                         elif smsDict['type'] == 'SMS-STATUS-REPORT':
-                            sms = StatusReport(self, int(msgStat), smsDict['reference'], smsDict['number'], smsDict['time'], smsDict['discharge'], smsDict['status'])
+                            sms = StatusReport(self, int(
+                                msgStat), smsDict['reference'], smsDict['number'], smsDict['time'], smsDict['discharge'], smsDict['status'])
                         else:
-                            raise CommandError('Invalid PDU type for readStoredSms(): {0}'.format(smsDict['type']))
+                            raise CommandError(
+                                'Invalid PDU type for readStoredSms(): {0}'.format(smsDict['type']))
                         messages.append(sms)
                         delMessages.add(msgIndex)
                         readPdu = False
@@ -1236,7 +1375,8 @@ class GsmModem(SerialComms):
 
         :param lines The lines that were read
         """
-        threading.Thread(target=self.__threadedHandleModemNotification, kwargs={'lines': lines}).start()
+        threading.Thread(target=self.__threadedHandleModemNotification, kwargs={
+                         'lines': lines}).start()
 
     def __threadedHandleModemNotification(self, lines):
         """ Implementation of _handleModemNotification() to be run in a separate thread
@@ -1266,11 +1406,13 @@ class GsmModem(SerialComms):
                 next_line_is_te_statusreport = True
                 cdsMatch = self.CDS_REGEX.match(line)
                 if cdsMatch:
-                    next_line_is_te_statusreport_length = int(cdsMatch.group(1))
+                    next_line_is_te_statusreport_length = int(
+                        cdsMatch.group(1))
                 else:
                     next_line_is_te_statusreport_length = -1
             elif next_line_is_te_statusreport:
-                self._handleSmsStatusReportTe(next_line_is_te_statusreport_length, line)
+                self._handleSmsStatusReportTe(
+                    next_line_is_te_statusreport_length, line)
                 return
             elif line.startswith('+UUDTMFD'):
                 # New incoming DTMF
@@ -1287,19 +1429,20 @@ class GsmModem(SerialComms):
         # If this is reached, the notification wasn't handled
         self.log.debug('Unhandled unsolicited modem notification: %s', lines)
 
-    #Simcom modem able detect incoming DTMF
-    def _handleIncomingDTMF(self,line):
+    # Simcom modem able detect incoming DTMF
+    def _handleIncomingDTMF(self, line):
         self.log.debug('Handling incoming DTMF')
 
         try:
-            dtmf_num=line.split(':')[1].replace(" ","")
+            dtmf_num = line.split(':')[1].replace(" ", "")
             self.dtmfpool.append(dtmf_num)
             self.dtmfReceivedCallback(dtmf_num)
             self.log.debug('DTMF number is {0}'.format(dtmf_num))
         except:
             self.log.debug('Error parse DTMF number on line {0}'.format(line))
+
     def GetIncomingDTMF(self):
-        if (len(self.dtmfpool)==0):
+        if (len(self.dtmfpool) == 0):
             return None
         else:
             return self.dtmfpool.pop(0)
@@ -1312,13 +1455,15 @@ class GsmModem(SerialComms):
                 callType = ringLine.split(' ', 1)[1]
             except IndexError:
                 # Some external 3G scripts modify incoming call indication settings (issue #18)
-                self.log.debug('Extended incoming call indication format changed externally; re-enabling...')
+                self.log.debug(
+                    'Extended incoming call indication format changed externally; re-enabling...')
                 callType = None
                 try:
                     # Re-enable extended format of incoming indication (optional)
                     self.write('AT+CRC=1')
                 except CommandError:
-                    self.log.warning('Extended incoming call indication format changed externally; unable to re-enable')
+                    self.log.warning(
+                        'Extended incoming call indication format changed externally; unable to re-enable')
                     self._extendedIncomingCallIndication = False
         else:
             callType = None
@@ -1328,10 +1473,10 @@ class GsmModem(SerialComms):
             if clipMatch:
                 callerNumber = '+' + clipMatch.group(1)
                 ton = clipMatch.group(2)
-                #TODO: re-add support for this
+                # TODO: re-add support for this
                 callerName = None
                 #callerName = clipMatch.group(3)
-                #if callerName != None and len(callerName) == 0:
+                # if callerName != None and len(callerName) == 0:
                 #    callerName = None
             else:
                 callerNumber = ton = callerName = None
@@ -1344,8 +1489,9 @@ class GsmModem(SerialComms):
                 call = activeCall
                 call.ringCount += 1
         if call == None:
-            callId = len(self.activeCalls) + 1;
-            call = IncomingCall(self, callerNumber, ton, callerName, callId, callType)
+            callId = len(self.activeCalls) + 1
+            call = IncomingCall(self, callerNumber, ton,
+                                callerName, callId, callType)
             self.activeCalls[callId] = call
         self.incomingCallCallback(call)
 
@@ -1356,9 +1502,10 @@ class GsmModem(SerialComms):
                 groups = regexMatch.groups()
                 # Set self._dialReponse to (callId, callType)
                 if len(groups) >= 2:
-                    self._dialResponse = (int(groups[0]) , int(groups[1]))
+                    self._dialResponse = (int(groups[0]), int(groups[1]))
                 else:
-                    self._dialResponse = (int(groups[0]), 1) # assume call type: VOICE
+                    # assume call type: VOICE
+                    self._dialResponse = (int(groups[0]), 1)
             else:
                 self._dialResponse = callId, callType
             self._dialEvent.set()
@@ -1417,7 +1564,8 @@ class GsmModem(SerialComms):
                 try:
                     self.smsReceivedCallback(sms)
                 except Exception:
-                    self.log.error('error in smsReceivedCallback', exc_info=True)
+                    self.log.error(
+                        'error in smsReceivedCallback', exc_info=True)
                 else:
                     self.deleteStoredSms(msgIndex)
 
@@ -1441,7 +1589,8 @@ class GsmModem(SerialComms):
                 try:
                     self.smsStatusReportCallback(report)
                 except Exception:
-                    self.log.error('error in smsStatusReportCallback', exc_info=True)
+                    self.log.error(
+                        'error in smsStatusReportCallback', exc_info=True)
 
     def _handleSmsStatusReportTe(self, length, notificationLine):
         """ Handler for TE SMS status reports """
@@ -1449,12 +1598,15 @@ class GsmModem(SerialComms):
         try:
             smsDict = decodeSmsPdu(notificationLine)
         except EncodingError:
-            self.log.debug('Discarding notification line from +CDS response: %s', notificationLine)
+            self.log.debug(
+                'Discarding notification line from +CDS response: %s', notificationLine)
         else:
             if smsDict['type'] == 'SMS-STATUS-REPORT':
-                report = StatusReport(self, int(smsDict['status']), smsDict['reference'], smsDict['number'], smsDict['time'], smsDict['discharge'], smsDict['status'])
+                report = StatusReport(self, int(smsDict['status']), smsDict['reference'],
+                                      smsDict['number'], smsDict['time'], smsDict['discharge'], smsDict['status'])
             else:
-                raise CommandError('Invalid PDU type for readStoredSms(): {0}'.format(smsDict['type']))
+                raise CommandError(
+                    'Invalid PDU type for readStoredSms(): {0}'.format(smsDict['type']))
         # Update sent SMS status if possible
         if report.reference in self.sentSms:
             self.sentSms[report.reference].report = report
@@ -1466,7 +1618,8 @@ class GsmModem(SerialComms):
             try:
                 self.smsStatusReportCallback(report)
             except Exception:
-                self.log.error('error in smsStatusReportCallback', exc_info=True)
+                self.log.error(
+                    'error in smsStatusReportCallback', exc_info=True)
 
     def readStoredSms(self, index, memory=None):
         """ Reads and returns the SMS message at the specified index
@@ -1502,11 +1655,13 @@ class GsmModem(SerialComms):
                         msgStatus = "REC UNREAD"
                     return StatusReport(self, Sms.TEXT_MODE_STATUS_MAP[msgStatus], int(reference), number, parseTextModeTimeStr(sentTime), parseTextModeTimeStr(deliverTime), int(deliverStatus))
                 else:
-                    raise CommandError('Failed to parse text-mode SMS message +CMGR response: {0}'.format(msgData))
+                    raise CommandError(
+                        'Failed to parse text-mode SMS message +CMGR response: {0}'.format(msgData))
         else:
             cmgrMatch = self.CMGR_REGEX_PDU.match(msgData[0])
             if not cmgrMatch:
-                raise CommandError('Failed to parse PDU-mode SMS message +CMGR response: {0}'.format(msgData))
+                raise CommandError(
+                    'Failed to parse PDU-mode SMS message +CMGR response: {0}'.format(msgData))
             stat, alpha, length = cmgrMatch.groups()
             try:
                 stat = int(stat)
@@ -1520,7 +1675,8 @@ class GsmModem(SerialComms):
             elif smsDict['type'] == 'SMS-STATUS-REPORT':
                 return StatusReport(self, int(stat), smsDict['reference'], smsDict['number'], smsDict['time'], smsDict['discharge'], smsDict['status'])
             else:
-                raise CommandError('Invalid PDU type for readStoredSms(): {0}'.format(smsDict['type']))
+                raise CommandError(
+                    'Invalid PDU type for readStoredSms(): {0}'.format(smsDict['type']))
 
     def deleteStoredSms(self, index, memory=None):
         """ Deletes the SMS message stored at the specified index in modem/SIM card memory
@@ -1535,7 +1691,7 @@ class GsmModem(SerialComms):
         self._setSmsMemory(readDelete=memory)
         self.write('AT+CMGD={0},0'.format(index))
         # TODO: make a check how many params are supported by the modem and use the right command. For example, Siemens MC35, TC35 take only one parameter.
-        #self.write('AT+CMGD={0}'.format(index))
+        # self.write('AT+CMGD={0}'.format(index))
 
     def deleteMultipleStoredSms(self, delFlag=4, memory=None):
         """ Deletes all SMS messages that have the specified read status.
@@ -1592,7 +1748,8 @@ class GsmModem(SerialComms):
             for cusdMatch in cusdMatches:
                 if cusdMatch.group(1) == '2':
                     # Set the session to inactive, but ignore the message
-                    self.log.debug('Ignoring "session release" message: %s', cusdMatch.group(2))
+                    self.log.debug(
+                        'Ignoring "session release" message: %s', cusdMatch.group(2))
                     sessionActive = False
                 else:
                     # Not a "session release" message
@@ -1621,34 +1778,37 @@ class GsmModem(SerialComms):
         timeLeft = timeout or 999999
         while self.alive and not callDone and timeLeft > 0:
             time.sleep(0.5)
-            if expectedState == 0: # Only call initializing can timeout
+            if expectedState == 0:  # Only call initializing can timeout
                 timeLeft -= 0.5
             try:
-                clcc = self._pollCallStatusRegex.match(self.write('AT+CLCC')[0])
+                clcc = self._pollCallStatusRegex.match(
+                    self.write('AT+CLCC')[0])
             except TimeoutException as timeout:
                 # Can happend if the call was ended during our time.sleep() call
                 clcc = None
             if clcc:
                 direction = int(clcc.group(2))
-                if direction == 0: # Outgoing call
+                if direction == 0:  # Outgoing call
                     # Determine call state
                     stat = int(clcc.group(3))
-                    if expectedState == 0: # waiting for call initiated
-                        if stat == 2 or stat == 3: # Dialing or ringing ("alerting")
+                    if expectedState == 0:  # waiting for call initiated
+                        # Dialing or ringing ("alerting")
+                        if stat == 2 or stat == 3:
                             callId = int(clcc.group(1))
                             callType = int(clcc.group(4))
-                            self._handleCallInitiated(None, callId, callType) # if self_dialEvent is None, this does nothing
-                            expectedState = 1 # Now wait for call answer
-                    elif expectedState == 1: # waiting for call to be answered
-                        if stat == 0: # Call active
+                            # if self_dialEvent is None, this does nothing
+                            self._handleCallInitiated(None, callId, callType)
+                            expectedState = 1  # Now wait for call answer
+                    elif expectedState == 1:  # waiting for call to be answered
+                        if stat == 0:  # Call active
                             callId = int(clcc.group(1))
                             self._handleCallAnswered(None, callId)
-                            expectedState = 2 # Now wait for call hangup
-            elif expectedState == 2 : # waiting for remote hangup
+                            expectedState = 2  # Now wait for call hangup
+            elif expectedState == 2:  # waiting for remote hangup
                 # Since there was no +CLCC response, the call is no longer active
                 callDone = True
                 self._handleCallEnded(None, callId=callId)
-            elif expectedState == 1: # waiting for call to be answered
+            elif expectedState == 1:  # waiting for call to be answered
                 # Call was rejected
                 callDone = True
                 self._handleCallRejected(None, callId=callId)
@@ -1660,7 +1820,7 @@ class Call(object):
     """ A voice call """
 
     DTMF_COMMAND_BASE = '+VTS='
-    dtmfSupport = False # Indicates whether or not DTMF tones can be sent in calls
+    dtmfSupport = False  # Indicates whether or not DTMF tones can be sent in calls
 
     def __init__(self, gsmModem, callId, callType, number, callStatusUpdateCallbackFunc=None):
         """
@@ -1684,6 +1844,7 @@ class Call(object):
     @property
     def answered(self):
         return self._answered
+
     @answered.setter
     def answered(self, answered):
         self._answered = answered
@@ -1704,20 +1865,22 @@ class Call(object):
             dtmfCommandBase = self.DTMF_COMMAND_BASE.format(cid=self.id)
             toneLen = len(tones)
             for tone in list(tones):
-              try:
-                 self._gsmModem.write('AT{0}{1}'.format(dtmfCommandBase,tone), timeout=(5 + toneLen))
+                try:
+                    self._gsmModem.write('AT{0}{1}'.format(
+                        dtmfCommandBase, tone), timeout=(5 + toneLen))
 
-              except CmeError as e:
-                if e.code == 30:
-                    # No network service - can happen if call is ended during DTMF transmission (but also if DTMF is sent immediately after call is answered)
-                    raise InterruptedException('No network service', e)
-                elif e.code == 3:
-                    # Operation not allowed - can happen if call is ended during DTMF transmission
-                    raise InterruptedException('Operation not allowed', e)
-                else:
-                    raise e
+                except CmeError as e:
+                    if e.code == 30:
+                        # No network service - can happen if call is ended during DTMF transmission (but also if DTMF is sent immediately after call is answered)
+                        raise InterruptedException('No network service', e)
+                    elif e.code == 3:
+                        # Operation not allowed - can happen if call is ended during DTMF transmission
+                        raise InterruptedException('Operation not allowed', e)
+                    else:
+                        raise e
         else:
-            raise InvalidStateException('Call is not active (it has not yet been answered, or it has ended).')
+            raise InvalidStateException(
+                'Call is not active (it has not yet been answered, or it has ended).')
 
     def hangup(self):
         """ End the phone call.
@@ -1737,6 +1900,7 @@ class IncomingCall(Call):
     CALL_TYPE_MAP = {'VOICE': 0}
 
     """ Represents an incoming call, conveniently allowing access to call meta information and -control """
+
     def __init__(self, gsmModem, number, ton, callerName, callId, callType):
         """
         :param gsmModem: GsmModem instance that created this object
@@ -1769,6 +1933,7 @@ class IncomingCall(Call):
         """ End the phone call. """
         self.ringing = False
         super(IncomingCall, self).hangup()
+
 
 class Ussd(object):
     """ Unstructured Supplementary Service Data (USSD) message.
