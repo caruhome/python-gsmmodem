@@ -138,6 +138,8 @@ class GsmModem(SerialComms):
     CSQ_REGEX = re.compile('^\+CSQ:\s*(\d+),(\d+)')
     # ^ extended signal information
     CESQ_REGEX = re.compile('^\+CESQ:\s*(\d+),(\d+),(\d+),(\d+),(\d+),(\d+)$')
+    # Available networks
+    COPS_REGEX = re.compile('(\(\d,"\w{0,24}","\w{0,10}","\d{5,6}",[0,1,3,7]\))')
     # Used for parsing caller ID announcements for incoming calls. Group 1 is the number
     CLIP_REGEX = re.compile('^\+CLIP:\s*"\+{0,1}(\d+)",(\d+).*$')
     # Used for parsing own number. Group 1 is the number
@@ -521,6 +523,7 @@ class GsmModem(SerialComms):
         self.write("AT+CGACT={},1".format(int(enable)))
 
     def getAvailableNetworks(self):
+        # Can take a while 
         cops = self.write("AT+COPS=?", timeout=60).split(" ")[1].split("),(")
 
         # Remove brackets from first and last network
