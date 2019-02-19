@@ -357,7 +357,7 @@ class GsmModem(SerialComms):
                 Call.dtmfSupport = True
 
         elif callUpdateTableHint == 4:  # LARA-R211
-            self.log.info('Loading ZTE call state update table')
+            self.log.info('Loading LARA-R211 call state update table')
             self._callStatusUpdates = ((re.compile('^\+UCALLSTAT:\s*(\d+),(0|7)$'), self._handleCallAnswered),
                                        (re.compile('^NO\s*CARRIER$'),
                                         self._handleCallEnded),
