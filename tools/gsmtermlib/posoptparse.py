@@ -6,6 +6,7 @@ Used for positional argument support similar to argparse (for Python 2.6 compati
 
 from optparse import OptionParser, Option, IndentedHelpFormatter
 
+
 class PosOptionParser(OptionParser):
     def format_help(self, formatter=None):
         class Positional(object):
@@ -16,12 +17,12 @@ class PosOptionParser(OptionParser):
         positional = Positional(self.positional)
         formatter = IndentedHelpFormatter()
         formatter.store_option_strings(positional)
-        output = ['\n', formatter.format_heading("Positional Arguments")]
+        output = ["\n", formatter.format_heading("Positional Arguments")]
         formatter.indent()
         pos_help = [formatter.format_option(opt) for opt in self.positional]
-        pos_help = [line.replace('--','') for line in pos_help]
+        pos_help = [line.replace("--", "") for line in pos_help]
         output += pos_help
-        return OptionParser.format_help(self, formatter) + ''.join(output)
+        return OptionParser.format_help(self, formatter) + "".join(output)
 
     def add_positional_argument(self, option):
         try:

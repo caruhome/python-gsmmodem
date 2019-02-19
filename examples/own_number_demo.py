@@ -8,16 +8,17 @@ from __future__ import print_function
 
 import logging
 
-PORT = '/dev/vmodem0'
+PORT = "/dev/vmodem0"
 BAUDRATE = 115200
-PIN = None # SIM card PIN (if any)
+PIN = None  # SIM card PIN (if any)
 
 from gsmmodem.modem import GsmModem
 
+
 def main():
-    print('Initializing modem...')
+    print("Initializing modem...")
     # Uncomment the following line to see what the modem is doing:
-    logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.DEBUG)
+    logging.basicConfig(format="%(levelname)s: %(message)s", level=logging.DEBUG)
     modem = GsmModem(PORT, BAUDRATE)
     modem.connect(PIN)
 
@@ -34,5 +35,6 @@ def main():
 
     # modem.close();
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
