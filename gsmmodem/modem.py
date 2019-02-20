@@ -179,6 +179,8 @@ class GsmModem(SerialComms):
     CNUM_REGEX = re.compile('^\+CNUM:\s*".*?","(\+{0,1}\d+)",(\d+).*$')
     # Used for parsing new SMS message indications
     CMTI_REGEX = re.compile('^\+CMTI:\s*"([^"]+)",\s*(\d+)$')
+    # Used for parsing a single CPOL network
+    CPOL_REGEX = re.compile('^\+CPOL:\s+(\d+),(\d),"([^"]+)",(\d),(\d),(\d),(\d)$')
     # Used for parsing SMS message reads (text mode)
     CMGR_SM_DELIVER_REGEX_TEXT = None
     # Used for parsing SMS status report message reads (text mode)
@@ -616,26 +618,27 @@ class GsmModem(SerialComms):
         return networks
 
     def getPreferredNetworks(self):
-        cpol = self.write("AT+CPOL?").cpol.split("\n\n")
+        cpol = self.write("AT+CPOL?")[:-1]
 
-        # Remove "OK"
-        cpol.remove("OK")
-
-        # Create Dictionary
         networks = []
+
         for network in cpol:
-            network = network.replace('"', "").split(" ")[1].split(",")
+            index, operator_format, operator, gsm_act, gsm_compact_act, utran_act, eutran_act = self.CPOL_REGEX.match(
+                network
+            ).groups()
+
             networks.append(
                 {
-                    "index": network[0],
-                    "format": network[1],
-                    "operator": network[2],
-                    "gsm_act": network[3],
-                    "gsm_compact_act": network[4],
-                    "utran_act": network[5],
-                    "eutran_act": network[6],
+                    "index": index,
+                    "format": operator_format,
+                    "operator": operator,
+                    "gsm_act": gsm_act,
+                    "gsm_compact_act": gsm_compact_act,
+                    "utran_act": utran_act,
+                    "eutran_act": eutran_act,
                 }
             )
+
         return networks
 
     def write(
