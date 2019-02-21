@@ -171,8 +171,6 @@ class GsmModem(SerialComms):
     CSQ_REGEX = re.compile("^\+CSQ:\s*(\d+),(\d+)")
     # ^ extended signal information
     CESQ_REGEX = re.compile("^\+CESQ:\s*(\d+),(\d+),(\d+),(\d+),(\d+),(\d+)$")
-    # Available networks
-    COPS_REGEX = re.compile('(\(\d,"\w{0,24}","\w{0,10}","\d{5,6}",[0,1,3,7]\))')
     # Used for parsing caller ID announcements for incoming calls. Group 1 is the number
     CLIP_REGEX = re.compile('^\+CLIP:\s*"\+{0,1}(\d+)",(\d+).*$')
     # Used for parsing own number. Group 1 is the number
@@ -181,6 +179,8 @@ class GsmModem(SerialComms):
     CMTI_REGEX = re.compile('^\+CMTI:\s*"([^"]+)",\s*(\d+)$')
     # Used for parsing a single CPOL network
     CPOL_REGEX = re.compile('^\+CPOL:\s+(\d+),(\d),"([^"]+)",(\d),(\d),(\d),(\d)$')
+    # Used for parsing multiple networks in a CPOS response
+    COPS_REGEX = re.compile('\((\d+),"([^"]+)","([^"]+)","([^"]+)",(\d+)\)')
     # Used for parsing SMS message reads (text mode)
     CMGR_SM_DELIVER_REGEX_TEXT = None
     # Used for parsing SMS status report message reads (text mode)
@@ -594,32 +594,28 @@ class GsmModem(SerialComms):
     def enableDataSession(self, enable):
         self.write("AT+CGACT={},1".format(int(enable)))
 
-    def getAvailableNetworks(self):
-        # Can take a while
-        cops = self.write("AT+COPS=?", timeout=60).split(" ")[1].split("),(")
-
-        # Remove brackets from first and last network
-        cops[0] = cops[0].replace("(", "")
-        cops[len(cops) - 1] = cops[len(cops) - 1].replace(")", "")
-
-        # Create Dictionary
+    def getAvailableNetworks(self, timeout=60):
+        cops = self.write("AT+COPS=?", timeout=timeout)[0]
         networks = []
-        for network in cops:
-            network = network.replace('"', "").split(",")
+
+        for _, network in enumerate(re.finditer(self.COPS_REGEX, cops)):
+            status, operator_long, operator_short, operator_numeric, access_technology = (
+                network.groups()
+            )
             networks.append(
                 {
-                    "status": network[0],
-                    "operator_long": network[1],
-                    "operator_short": network[2],
-                    "operator_numeric": network[3],
-                    "access_technology": network[4],
+                    "status": status,
+                    "operator_long": operator_long,
+                    "operator_short": operator_short,
+                    "operator_numeric": operator_numeric,
+                    "access_technology": access_technology,
                 }
             )
+
         return networks
 
     def getPreferredNetworks(self):
         cpol = self.write("AT+CPOL?")[:-1]
-
         networks = []
 
         for network in cpol:
