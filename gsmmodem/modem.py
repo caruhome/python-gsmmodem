@@ -167,6 +167,12 @@ class GsmModem(SerialComms):
 
     # Used for parsing AT command errors
     CM_ERROR_REGEX = re.compile("^\+(CM[ES]) ERROR: (\d+)$")
+    # Used for parsing extended error information
+    # Either +CEER: "No Report Available" or
+    # +CEER: "CC setup error",31,"Normal, unspecified"
+    #                 │               │           │
+    #                type           cause     description
+    CEER_REGEX = re.compile('^\+CEER:\s+"([^"]+)"(?:,(\d+),"([^"]+)")?$')
     # Used for parsing signal strength query responses
     CSQ_REGEX = re.compile("^\+CSQ:\s*(\d+),(\d+)")
     # ^ extended signal information
@@ -569,13 +575,16 @@ class GsmModem(SerialComms):
             else:
                 raise PinRequiredError("AT+CPIN")
 
+    def getExtendedErrorReport(self):
+        """
+        Return extended error report of last command failure:
+        returns an (error type, cause, description) tuple
+        """
+        ceer = self.CEER_REGEX.match(self.write("AT+CEER")[0])
+        return ceer.groups()
+
     def enableDtmf(self):
         return self.write("AT+UDTMFD=1,2,8,100")
-
-    def enableGsmOnly(self):
-        self.write("AT+COPS=2")
-        self.write("AT+URAT=0,0")
-        self.write("AT+COPS=0")
 
     def setI2SParameterAndPaths(self):
         self.write("AT+USPM=255,255,0,0,2")
@@ -586,13 +595,11 @@ class GsmModem(SerialComms):
         return self.write("AT+UCALLSTAT=1")
 
     def setAutomaticNetworkSelection(self):
-        self.write("AT+COPS=0")
+        return self.write("AT+COPS=0", timeout=30)
 
-    def setManualNetworkSelection(self, format, network):
-        self.write('AT+COPS=1,{},"{}"'.format(format, network))
-
-    def enableDataSession(self, enable):
-        self.write("AT+CGACT={},1".format(int(enable)))
+    def setManualNetworkSelection(self, network_numeric):
+        assert len(network_numeric) == 5
+        return self.write('AT+COPS=1,2,"{}"'.format(network_numeric))
 
     def getAvailableNetworks(self, timeout=60):
         cops = self.write("AT+COPS=?", timeout=timeout)[0]
