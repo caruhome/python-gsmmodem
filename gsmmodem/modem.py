@@ -597,7 +597,10 @@ class GsmModem(SerialComms):
     def setAutomaticNetworkSelection(self):
         return self.write("AT+COPS=0", timeout=30)
 
-    def setManualNetworkSelection(self, network_numeric):
+    def disconnectNetwork(self):
+        return self.write("AT+COPS=2", timeout=30)
+
+    def setManualNetworkSelection(self, network_numeric, access_technology=0):
         assert len(network_numeric) == 5
         return self.write('AT+COPS=1,2,"{}"'.format(network_numeric))
 
