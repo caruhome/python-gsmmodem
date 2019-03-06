@@ -27,7 +27,7 @@ COPS_URAT_ACCESS_TECHNOLOGY_MAPPING = {
     0: URAT_SELECTED_ACCESS_TECHNOLOGY_GSM,
     1: URAT_SELECTED_ACCESS_TECHNOLOGY_GSM,
     3: URAT_SELECTED_ACCESS_TECHNOLOGY_GSM,
-    7: URAT_SELECTED_ACCESS_TECHNOLOGY_LTE
+    7: URAT_SELECTED_ACCESS_TECHNOLOGY_LTE,
 }
 
 
@@ -40,15 +40,32 @@ def main():
     modem.setRadioAccessTechnology(*URAT_DEFAULT_PARAMS)
 
     networks = modem.getAvailableNetworks()
-    print('Available networks: \n{}'.format('\n'.join(["({}, {}, {})".format(network['operator_long'], network['operator_numeric'], network['access_technology']) for network in networks])))
+    print(
+        "Available networks: \n{}".format(
+            "\n".join(
+                [
+                    "({}, {}, {})".format(
+                        network["operator_long"],
+                        network["operator_numeric"],
+                        network["access_technology"],
+                    )
+                    for network in networks
+                ]
+            )
+        )
+    )
 
     for network in networks:
-        operator = network['operator_numeric']
-        access_technology = network['access_technology']
-        forbidden = network['status'] == FORBIDDEN_NETWORK_STATUS
+        operator = network["operator_numeric"]
+        access_technology = network["access_technology"]
+        forbidden = network["status"] == FORBIDDEN_NETWORK_STATUS
 
         if forbidden:
-            print('✗ Skipping forbidden network {} on AcT {}'.format(operator, access_technology))
+            print(
+                "✗ Skipping forbidden network {} on AcT {}".format(
+                    operator, access_technology
+                )
+            )
             print("└→ Extended error report: {}".format(modem.getExtendedErrorReport()))
             continue
 
@@ -58,9 +75,13 @@ def main():
         time.sleep(FIVE_SECONDS)
 
         # enforce usage of access_technology, i.e. not that it automatically switch to LTE
-        selected_urat_access_technology = COPS_URAT_ACCESS_TECHNOLOGY_MAPPING[access_technology]
+        selected_urat_access_technology = COPS_URAT_ACCESS_TECHNOLOGY_MAPPING[
+            access_technology
+        ]
         modem.setRadioAccessTechnology(selected_urat_access_technology)
-        print("Running measurements for {} on AcT {}".format(operator, access_technology))
+        print(
+            "Running measurements for {} on AcT {}".format(operator, access_technology)
+        )
 
         try:
             modem.setManualNetworkSelection(operator, access_technology)
@@ -72,9 +93,13 @@ def main():
         try:
             modem.waitForNetworkCoverage(TWENTY_SECONDS)
             creg = modem.getNetworkRegistrationStatus()
-            print('Network registration status: {}'.format(creg))
+            print("Network registration status: {}".format(creg))
         except Exception:
-            print("✗ Skipping {}. Unable to register on network (timeout).".format(operator))
+            print(
+                "✗ Skipping {}. Unable to register on network (timeout).".format(
+                    operator
+                )
+            )
             print("└→ Extended error report: {}".format(modem.getExtendedErrorReport()))
             continue
 
