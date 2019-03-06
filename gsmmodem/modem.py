@@ -173,6 +173,8 @@ class GsmModem(SerialComms):
     #                 │               │           │
     #                type           cause     description
     CEER_REGEX = re.compile('^\+CEER:\s+"([^"]+)"(?:,(\d+),"([^"]+)")?$')
+    # Used for parsing network registration status
+    CREG_REGEX = re.compile('^\+CREG:\s+(\d+),(\d+)(?:,"([^"]+)","([^"]+)",(\d+))?$')
     # Used for parsing signal strength query responses
     CSQ_REGEX = re.compile("^\+CSQ:\s*(\d+),(\d+)")
     # ^ extended signal information
@@ -602,7 +604,20 @@ class GsmModem(SerialComms):
 
     def setManualNetworkSelection(self, network_numeric, access_technology=0):
         assert len(network_numeric) == 5
-        return self.write('AT+COPS=1,2,"{}"'.format(network_numeric))
+        return self.write('AT+COPS=1,2,"{}",{}'.format(network_numeric, access_technology))
+
+    def setRadioAccessTechnology(self, selected_access_technology, preferred_access_technolgy=None):
+        assert selected_access_technology in range(0, 7)
+        assert preferred_access_technolgy in [None, 0, 2, 3]
+
+        if preferred_access_technolgy is None:
+            return self.write('AT+URAT={}'.format(selected_access_technology), timeout=30)
+
+        return self.write('AT+URAT={},{}'.format(selected_access_technology, preferred_access_technolgy), timeout=30)
+
+    def getNetworkRegistrationStatus(self):
+        creg = self.CREG_REGEX.match(self.write("AT+CREG?", timeout=5)[0])
+        return creg.groups()
 
     def getAvailableNetworks(self, timeout=60):
         cops = self.write("AT+COPS=?", timeout=timeout)[0]
