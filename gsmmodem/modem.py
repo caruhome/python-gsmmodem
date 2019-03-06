@@ -762,8 +762,10 @@ class GsmModem(SerialComms):
         ber = cesq.group(2)
         rscp = cesq.group(3)
         ecn0 = cesq.group(4)
+        rsrq = cesq.group(5)
+        rsrp = cesq.group(6)
 
-        return (rxlev, ber, rscp, ecn0)
+        return (rxlev, ber, rscp, ecn0, rsrq, rsrp)
 
     @property
     def signalStrength(self):
