@@ -582,7 +582,7 @@ class GsmModem(SerialComms):
         Return extended error report of last command failure:
         returns an (error type, cause, description) tuple
         """
-        ceer = self.CEER_REGEX.match(self.write("AT+CEER")[0])
+        ceer = self.CEER_REGEX.match(self.write("AT+CEER", timeout=5)[0])
         return ceer.groups()
 
     def enableDtmf(self):
