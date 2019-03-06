@@ -629,11 +629,11 @@ class GsmModem(SerialComms):
             )
             networks.append(
                 {
-                    "status": status,
+                    "status": int(status),
                     "operator_long": operator_long,
                     "operator_short": operator_short,
                     "operator_numeric": operator_numeric,
-                    "access_technology": access_technology,
+                    "access_technology": int(access_technology),
                 }
             )
 
