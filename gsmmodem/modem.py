@@ -637,7 +637,7 @@ class GsmModem(SerialComms):
         stat = int(creg.group(2))
         lac = creg.group(3)
         ci = creg.group(4)
-        act_status = creg.group(5)
+        act_status = int(creg.group(5))
 
         return (n, stat, lac, ci, act_status)
 
