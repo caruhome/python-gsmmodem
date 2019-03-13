@@ -583,7 +583,12 @@ class GsmModem(SerialComms):
         returns an (error type, cause, description) tuple
         """
         ceer = self.CEER_REGEX.match(self.write("AT+CEER", timeout=5)[0])
-        return ceer.groups()
+
+        error_type = ceer.group(1)
+        error_cause = int(ceer.group(2)) if ceer.group(2) else None
+        error_description = ceer.group(3)
+
+        return (error_type, error_cause, error_description)
 
     def enableDtmf(self):
         return self.write("AT+UDTMFD=1,2,8,100")
@@ -628,7 +633,13 @@ class GsmModem(SerialComms):
 
     def getNetworkRegistrationStatus(self):
         creg = self.CREG_REGEX.match(self.write("AT+CREG?", timeout=5)[0])
-        return creg.groups()
+        n = int(creg.group(1))
+        stat = int(creg.group(2))
+        lac = creg.group(3)
+        ci = creg.group(4)
+        act_status = creg.group(5)
+
+        return (n, stat, lac, ci, act_status)
 
     def getAvailableNetworks(self, timeout=60):
         cops = self.write("AT+COPS=?", timeout=timeout)[0]
@@ -784,12 +795,12 @@ class GsmModem(SerialComms):
         """
         cesq = self.CESQ_REGEX.match(self.write("AT+CESQ")[0])
 
-        rxlev = cesq.group(1)
-        ber = cesq.group(2)
-        rscp = cesq.group(3)
-        ecn0 = cesq.group(4)
-        rsrq = cesq.group(5)
-        rsrp = cesq.group(6)
+        rxlev = int(cesq.group(1))
+        ber = int(cesq.group(2))
+        rscp = int(cesq.group(3))
+        ecn0 = int(cesq.group(4))
+        rsrq = int(cesq.group(5))
+        rsrp = int(cesq.group(6))
 
         return (rxlev, ber, rscp, ecn0, rsrq, rsrp)
 
