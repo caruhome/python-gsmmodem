@@ -6,26 +6,28 @@
 from datetime import datetime, timedelta, tzinfo
 import re
 
-class SimpleOffsetTzInfo(tzinfo):    
+
+class SimpleOffsetTzInfo(tzinfo):
     """ Very simple implementation of datetime.tzinfo offering set timezone offset for datetime instances """
-    
+
     def __init__(self, offsetInHours=None):
         """ Constructs a new tzinfo instance using an amount of hours as an offset
         
         :param offsetInHours: The timezone offset, in hours (may be negative)
         :type offsetInHours: int or float
         """
-        if offsetInHours != None: #pragma: no cover
-            self.offsetInHours = offsetInHours        
-    
+        if offsetInHours != None:  # pragma: no cover
+            self.offsetInHours = offsetInHours
+
     def utcoffset(self, dt):
         return timedelta(hours=self.offsetInHours)
-    
+
     def dst(self, dt):
         return timedelta(0)
-    
+
     def __repr__(self):
-        return 'gsmmodem.util.SimpleOffsetTzInfo({0})'.format(self.offsetInHours)
+        return "gsmmodem.util.SimpleOffsetTzInfo({0})".format(self.offsetInHours)
+
 
 def parseTextModeTimeStr(timeStr):
     """ Parses the specified SMS text mode time string
@@ -42,7 +44,10 @@ def parseTextModeTimeStr(timeStr):
     """
     msgTime = timeStr[:-3]
     tzOffsetHours = int(int(timeStr[-3:]) * 0.25)
-    return datetime.strptime(msgTime, '%y/%m/%d,%H:%M:%S').replace(tzinfo=SimpleOffsetTzInfo(tzOffsetHours))
+    return datetime.strptime(msgTime, "%y/%m/%d,%H:%M:%S").replace(
+        tzinfo=SimpleOffsetTzInfo(tzOffsetHours)
+    )
+
 
 def lineStartingWith(string, lines):
     """ Searches through the specified list of strings and returns the 
@@ -53,6 +58,7 @@ def lineStartingWith(string, lines):
             return line
     else:
         return None
+
 
 def lineMatching(regexStr, lines):
     """ Searches through the specified list of strings and returns the regular expression 
@@ -74,6 +80,7 @@ def lineMatching(regexStr, lines):
     else:
         return None
 
+
 def lineMatchingPattern(pattern, lines):
     """ Searches through the specified list of strings and returns the regular expression 
     match for the first line that matches the specified pre-compiled regex pattern, or None if no match was found
@@ -92,7 +99,8 @@ def lineMatchingPattern(pattern, lines):
             return m
     else:
         return None
-    
+
+
 def allLinesMatchingPattern(pattern, lines):
     """ Like lineMatchingPattern, but returns all lines that match the specified pattern
 
