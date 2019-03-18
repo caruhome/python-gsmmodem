@@ -584,6 +584,10 @@ class GsmModem(SerialComms):
         """
         ceer = self.CEER_REGEX.match(self.write("AT+CEER", timeout=5)[0])
 
+        if not ceer:
+            self.log.warning("Unable to parse response for AT+CEER")
+            return (None, None, None)
+
         error_type = ceer.group(1)
         error_cause = int(ceer.group(2)) if ceer.group(2) else None
         error_description = ceer.group(3)
@@ -633,11 +637,16 @@ class GsmModem(SerialComms):
 
     def getNetworkRegistrationStatus(self):
         creg = self.CREG_REGEX.match(self.write("AT+CREG?", timeout=5)[0])
+
+        if not creg:
+            self.log.warning("Unable to parse response for AT+CREG")
+            return (None, None, None, None, None)
+
         n = int(creg.group(1))
         stat = int(creg.group(2))
         lac = creg.group(3)
         ci = creg.group(4)
-        act_status = int(creg.group(5))
+        act_status = int(creg.group(5)) if creg.group(5) else None
 
         return (n, stat, lac, ci, act_status)
 
@@ -794,6 +803,10 @@ class GsmModem(SerialComms):
         :return A tuple (rxlev, ber, rscp, ecn0)
         """
         cesq = self.CESQ_REGEX.match(self.write("AT+CESQ")[0])
+
+        if not cesq:
+            self.log.warning("Unable to parse response for AT+CESQ")
+            return (None, None, None, None, None, None)
 
         rxlev = int(cesq.group(1))
         ber = int(cesq.group(2))
