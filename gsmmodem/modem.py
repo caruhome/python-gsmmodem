@@ -187,8 +187,10 @@ class GsmModem(SerialComms):
     CMTI_REGEX = re.compile('^\+CMTI:\s*"([^"]+)",\s*(\d+)$')
     # Used for parsing a single CPOL network
     CPOL_REGEX = re.compile('^\+CPOL:\s+(\d+),(\d),"([^"]+)",(\d),(\d),(\d),(\d)$')
-    # Used for parsing multiple networks in a CPOS response
-    COPS_REGEX = re.compile('\((\d+),"([^"]+)","([^"]+)","([^"]+)",(\d+)\)')
+    # User for parsing a single COPS? response
+    COPS_REGEX = re.compile('^\+COPS:\s+(\d)(?:,(\d),"([^"]+)")?(?:,(\d))?$')
+    # Used for parsing multiple networks in a COPS=? response entries
+    COPS_AVAILABLE_REGEX = re.compile('\((\d+),"([^"]+)","([^"]+)","([^"]+)",(\d+)\)')
     # Used for parsing SMS message reads (text mode)
     CMGR_SM_DELIVER_REGEX_TEXT = None
     # Used for parsing SMS status report message reads (text mode)
@@ -650,11 +652,31 @@ class GsmModem(SerialComms):
 
         return (n, stat, lac, ci, act_status)
 
+    def getCurrentOperatorSelection(self):
+        """ Possible COPS?
+        +COPS: 0,0,"vodafone IT"
+        +COPS: 0,0,"vodafone IT",7
+        +COPS: 2
+        """
+        cops = self.COPS_REGEX.match(self.write("AT+COPS?", timeout=10)[0])
+
+        if not cops:
+            self.log.warning("Unable to parse response for AT+COPS")
+            return (None, None, None, None)
+
+        mode, operator_format, operator, access_technology = cops.groups()
+
+        mode = int(mode) if mode else None
+        operator_format = int(operator_format) if operator_format else None
+        access_technology = int(access_technology) if access_technology else None
+
+        return (mode, operator_format, operator, access_technology)
+
     def getAvailableNetworks(self, timeout=60):
         cops = self.write("AT+COPS=?", timeout=timeout)[0]
         networks = []
 
-        for _, network in enumerate(re.finditer(self.COPS_REGEX, cops)):
+        for _, network in enumerate(re.finditer(self.COPS_AVAILABLE_REGEX, cops)):
             status, operator_long, operator_short, operator_numeric, access_technology = (
                 network.groups()
             )
