@@ -187,8 +187,10 @@ class GsmModem(SerialComms):
     CMTI_REGEX = re.compile('^\+CMTI:\s*"([^"]+)",\s*(\d+)$')
     # Used for parsing a single CPOL network
     CPOL_REGEX = re.compile('^\+CPOL:\s+(\d+),(\d),"([^"]+)",(\d),(\d),(\d),(\d)$')
-    # User for parsing a single COPS? response
+    # Used for parsing a single COPS? response
     COPS_REGEX = re.compile('^\+COPS:\s+(\d)(?:,(\d),"([^"]+)")?(?:,(\d))?$')
+    # Used for parsing a single CIND? response
+    CIND_REGEX = re.compile('^\+CIND:\s+\d,(\d)')
     # Used for parsing multiple networks in a COPS=? response entries
     COPS_AVAILABLE_REGEX = re.compile('\((\d+),"([^"]+)","([^"]+)","([^"]+)",(\d+)\)')
     # Used for parsing SMS message reads (text mode)
@@ -651,6 +653,24 @@ class GsmModem(SerialComms):
         act_status = int(creg.group(5)) if creg.group(5) else None
 
         return (n, stat, lac, ci, act_status)
+
+    def getSignalQualityIndicator(self):
+        """
+        Like the bars on your phone:
+        0 (< -105 dBm or unknown) = worst
+        1 (< -93 dBm)
+        2 (< -81 dBm)
+        3 (< -69 dBm)
+        4 (< -57 dBm)
+        5 (>= -57 dBm) = best
+        """
+        cind = self.CIND_REGEX.match(self.write("AT+CIND?")[0])
+
+        if not cind:
+            self.log.warning("Unable to parse response for AT+CIND")
+            return None
+
+        return cind.groups()[0]
 
     def getCurrentOperatorSelection(self):
         """ Possible COPS?
