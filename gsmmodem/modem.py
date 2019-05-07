@@ -604,8 +604,14 @@ class GsmModem(SerialComms):
     def setI2SParameterAndPaths(self):
         self.write("AT+USPM=255,255,0,0,2")
         self.write("AT+UI2S=1,1,0,8,1")
-        self.write("AT+USPM=4,4,0,0,2")
-
+        self.write("AT+USPM=1,1,0,0,2")
+        self.write("AT+CRSL=4")
+        self.write("AT+CLVL=80")
+        self.write("AT+UMGC=1,,32767")
+        self.write("AT+USGC=1,,,16384,16384")
+        self.write("AT+USTN=1,0")
+        self.write("AT+UHFP=1,0x564,,,,,,,0,50,100,16384,7500,7500,2,150,250,250,100,100,100")
+        
     def enableCallStatusUpdates(self):
         return self.write("AT+UCALLSTAT=1")
 
