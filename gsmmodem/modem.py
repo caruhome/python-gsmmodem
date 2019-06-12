@@ -615,6 +615,12 @@ class GsmModem(SerialComms):
     def enableCallStatusUpdates(self):
         return self.write("AT+UCALLSTAT=1")
 
+    def storeCurrentConfigurationProfile0(self):
+        return self.write("AT&W0")
+    
+    def restoreFactoryConfiguration(self):
+        return self.write("AT+UFACTORY=0,1")
+
     def setAutomaticNetworkSelection(self):
         return self.write("AT+COPS=0", timeout=30)
 
