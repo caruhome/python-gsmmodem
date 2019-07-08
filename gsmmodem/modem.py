@@ -170,7 +170,7 @@ class GsmModem(SerialComms):
     # Used for parsing extended error information
     # Either +CEER: "No Report Available" or
     # +CEER: "CC setup error",31,"Normal, unspecified"
-    #                 │               │           │
+    #
     #                type           cause     description
     CEER_REGEX = re.compile('^\+CEER:\s+"([^"]+)"(?:,(\d+),"([^"]+)")?$')
     # Used for parsing network registration status
@@ -452,84 +452,81 @@ class GsmModem(SerialComms):
         # General meta-information setup
         # Use long alphanumeric name format
         self.write("AT+COPS=3,0", parseError=False)
-
-        if self.smsReceivedCallback != self._placeholderCallback:
-            # SMS setup
-            # Switch to text or PDU mode for SMS messages
-            self.write("AT+CMGF={0}".format(1 if self.smsTextMode else 0))
-            self._compileSmsRegexes()
-            if self._smscNumber != None:
-                # Set default SMSC number
-                self.write('AT+CSCA="{0}"'.format(self._smscNumber))
-                currentSmscNumber = self._smscNumber
+        
+        # SMS setup
+        # Switch to text or PDU mode for SMS messages
+        self.write("AT+CMGF={0}".format(1 if self.smsTextMode else 0))
+        self._compileSmsRegexes()
+        if self._smscNumber != None:
+            # Set default SMSC number
+            self.write('AT+CSCA="{0}"'.format(self._smscNumber))
+            currentSmscNumber = self._smscNumber
+        else:
+            currentSmscNumber = self.smsc
+        # Some modems delete the SMSC number when setting text-mode SMS parameters; preserve it if needed
+        if currentSmscNumber != None:
+            self._smscNumber = None  # clear cache
+        if self.requestDelivery:
+            # Enable delivery reports
+            self.write("AT+CSMP=49,167,0,0", parseError=False)
+        else:
+            # Not enable delivery reports
+            self.write("AT+CSMP=17,167,0,0", parseError=False)
+        # ...check SMSC again to ensure it did not change
+        if currentSmscNumber != None and self.smsc != currentSmscNumber:
+            self.smsc = currentSmscNumber
+        # Set message storage, but first check what the modem supports - example response: +CPMS: (("SM","BM","SR"),("SM"))
+        try:
+            cpmsLine = lineStartingWith("+CPMS", self.write("AT+CPMS=?"))
+        except CommandError:
+            # Modem does not support AT+CPMS; SMS reading unavailable
+            self._smsReadSupported = False
+            self.log.warning(
+                "SMS preferred message storage query not supported by modem. SMS reading unavailable."
+            )
+        else:
+            cpmsSupport = cpmsLine.split(" ", 1)[1].split("),(")
+            # Do a sanity check on the memory types returned - Nokia S60 devices return empty strings, for example
+            for memItem in cpmsSupport:
+                if len(memItem) == 0:
+                    # No support for reading stored SMS via AT commands - probably a Nokia S60
+                    self._smsReadSupported = False
+                    self.log.warning(
+                        'Invalid SMS message storage support returned by modem. SMS reading unavailable. Response was: "%s"',
+                        cpmsLine,
+                    )
+                    break
             else:
-                currentSmscNumber = self.smsc
-            # Some modems delete the SMSC number when setting text-mode SMS parameters; preserve it if needed
-            if currentSmscNumber != None:
-                self._smscNumber = None  # clear cache
-            if self.requestDelivery:
-                # Enable delivery reports
-                self.write("AT+CSMP=49,167,0,0", parseError=False)
-            else:
-                # Not enable delivery reports
-                self.write("AT+CSMP=17,167,0,0", parseError=False)
-            # ...check SMSC again to ensure it did not change
-            if currentSmscNumber != None and self.smsc != currentSmscNumber:
-                self.smsc = currentSmscNumber
-
-            # Set message storage, but first check what the modem supports - example response: +CPMS: (("SM","BM","SR"),("SM"))
+                # Suppported memory types look fine, continue
+                preferredMemoryTypes = ('"ME"', '"SM"', '"SR"')
+                cpmsItems = [""] * len(cpmsSupport)
+                for i in xrange(len(cpmsSupport)):
+                    for memType in preferredMemoryTypes:
+                        if memType in cpmsSupport[i]:
+                            if i == 0:
+                                self._smsMemReadDelete = memType
+                            cpmsItems[i] = memType
+                            break
+                # Set message storage
+                self.write("AT+CPMS={0}".format(",".join(cpmsItems)))
+            del cpmsSupport
+            del cpmsLine
+        if self._smsReadSupported and (
+            self.smsReceivedCallback or self.smsStatusReportCallback
+        ) and self.smsReceivedCallback != self._placeholderCallback:
             try:
-                cpmsLine = lineStartingWith("+CPMS", self.write("AT+CPMS=?"))
+                # Set message notifications
+                self.write("AT+CNMI=" + self.AT_CNMI)
             except CommandError:
-                # Modem does not support AT+CPMS; SMS reading unavailable
-                self._smsReadSupported = False
-                self.log.warning(
-                    "SMS preferred message storage query not supported by modem. SMS reading unavailable."
-                )
-            else:
-                cpmsSupport = cpmsLine.split(" ", 1)[1].split("),(")
-                # Do a sanity check on the memory types returned - Nokia S60 devices return empty strings, for example
-                for memItem in cpmsSupport:
-                    if len(memItem) == 0:
-                        # No support for reading stored SMS via AT commands - probably a Nokia S60
-                        self._smsReadSupported = False
-                        self.log.warning(
-                            'Invalid SMS message storage support returned by modem. SMS reading unavailable. Response was: "%s"',
-                            cpmsLine,
-                        )
-                        break
-                else:
-                    # Suppported memory types look fine, continue
-                    preferredMemoryTypes = ('"ME"', '"SM"', '"SR"')
-                    cpmsItems = [""] * len(cpmsSupport)
-                    for i in xrange(len(cpmsSupport)):
-                        for memType in preferredMemoryTypes:
-                            if memType in cpmsSupport[i]:
-                                if i == 0:
-                                    self._smsMemReadDelete = memType
-                                cpmsItems[i] = memType
-                                break
-                    # Set message storage
-                    self.write("AT+CPMS={0}".format(",".join(cpmsItems)))
-                del cpmsSupport
-                del cpmsLine
-
-            if self._smsReadSupported and (
-                self.smsReceivedCallback or self.smsStatusReportCallback
-            ):
                 try:
-                    # Set message notifications
-                    self.write("AT+CNMI=" + self.AT_CNMI)
+                    # Set message notifications, using TE for delivery reports <ds>
+                    self.write("AT+CNMI=2,1,0,1,0")
                 except CommandError:
-                    try:
-                        # Set message notifications, using TE for delivery reports <ds>
-                        self.write("AT+CNMI=2,1,0,1,0")
-                    except CommandError:
-                        # Message notifications not supported
-                        self._smsReadSupported = False
-                        self.log.warning(
-                            "Incoming SMS notifications not supported by modem. SMS receiving unavailable."
-                        )
+                    # Message notifications not supported
+                    self._smsReadSupported = False
+                    self.log.warning(
+                        "Incoming SMS notifications not supported by modem. SMS receiving unavailable."
+                    )
 
         # Incoming call notification setup
         try:
@@ -845,8 +842,8 @@ class GsmModem(SerialComms):
         - rscp: received signal code power
         - ecn0: ratio of received energy per PN chip to the total power spectral density
 
-        → see Lara R211, AT commands manual; page 82, chapter 7.3.3
-
+        see Lara R211, AT commands manual; page 82, chapter 7.3.3
+        
         :raise CommandError: if an error occurs
 
         :return A tuple (rxlev, ber, rscp, ecn0)
