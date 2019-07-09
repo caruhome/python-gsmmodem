@@ -1062,6 +1062,7 @@ class TestEdgeCases(unittest.TestCase):
         mockSerial = MockSerialPackage()
         gsmmodem.serial_comms.serial = mockSerial
         modem = gsmmodem.modem.GsmModem("-- PORT IGNORED DURING TESTS --")
+        modem.smsReceivedCallback = True   
         modem.connect()
         SERIAL_WRITE_CALLBACK_FUNC = None
         self.assertTrue(

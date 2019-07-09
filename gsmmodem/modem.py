@@ -170,7 +170,7 @@ class GsmModem(SerialComms):
     # Used for parsing extended error information
     # Either +CEER: "No Report Available" or
     # +CEER: "CC setup error",31,"Normal, unspecified"
-    #                 │               │           │
+    #
     #                type           cause     description
     CEER_REGEX = re.compile('^\+CEER:\s+"([^"]+)"(?:,(\d+),"([^"]+)")?$')
     # Used for parsing network registration status
@@ -452,7 +452,7 @@ class GsmModem(SerialComms):
         # General meta-information setup
         # Use long alphanumeric name format
         self.write("AT+COPS=3,0", parseError=False)
-
+        
         # SMS setup
         # Switch to text or PDU mode for SMS messages
         self.write("AT+CMGF={0}".format(1 if self.smsTextMode else 0))
@@ -475,7 +475,6 @@ class GsmModem(SerialComms):
         # ...check SMSC again to ensure it did not change
         if currentSmscNumber != None and self.smsc != currentSmscNumber:
             self.smsc = currentSmscNumber
-
         # Set message storage, but first check what the modem supports - example response: +CPMS: (("SM","BM","SR"),("SM"))
         try:
             cpmsLine = lineStartingWith("+CPMS", self.write("AT+CPMS=?"))
@@ -512,10 +511,9 @@ class GsmModem(SerialComms):
                 self.write("AT+CPMS={0}".format(",".join(cpmsItems)))
             del cpmsSupport
             del cpmsLine
-
         if self._smsReadSupported and (
             self.smsReceivedCallback or self.smsStatusReportCallback
-        ):
+        ) and self.smsReceivedCallback != self._placeholderCallback:
             try:
                 # Set message notifications
                 self.write("AT+CNMI=" + self.AT_CNMI)
@@ -844,8 +842,8 @@ class GsmModem(SerialComms):
         - rscp: received signal code power
         - ecn0: ratio of received energy per PN chip to the total power spectral density
 
-        → see Lara R211, AT commands manual; page 82, chapter 7.3.3
-
+        see Lara R211, AT commands manual; page 82, chapter 7.3.3
+        
         :raise CommandError: if an error occurs
 
         :return A tuple (rxlev, ber, rscp, ecn0)
