@@ -3,6 +3,7 @@ steps:
     commands:
       - pip install coveralls
       - pip install -r requirements.txt
+      - python setup.py coverage
     agents:
       queue: build
     plugins:
