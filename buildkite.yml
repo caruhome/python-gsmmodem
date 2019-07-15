@@ -1,0 +1,10 @@
+steps:
+  - label: test
+    commands:
+      - pip install coveralls
+      - pip install -r requirements.txt
+    agents:
+      queue: build
+    plugins:
+    - docker#v3.3.0:
+        image: python:3.6
