@@ -607,10 +607,10 @@ class GsmModem(SerialComms):
         self.write("AT+USPM=1,1,0,0,2")
         self.write("AT+CRSL=4")
         self.write("AT+CLVL=80")
-        self.write("AT+UMGC=1,,32767")
-        self.write("AT+USGC=1,,,16384,16384")
+        self.write("AT+UMGC=1,,8192")
+        self.write("AT+USGC=1,,,16384,8192")
         self.write("AT+USTN=1,0")
-        self.write("AT+UHFP=1,0x564,,,,,,,0,50,100,16384,7500,7500,2,150,250,250,100,100,100")
+        self.write("AT+UHFP=1,0x424,,,,,,,0,50,100,8192,7500,7500,2,200,200,200,100,100,100")
         
     def enableCallStatusUpdates(self):
         return self.write("AT+UCALLSTAT=1")
