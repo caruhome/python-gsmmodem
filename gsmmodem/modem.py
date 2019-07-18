@@ -296,7 +296,7 @@ class GsmModem(SerialComms):
 
         # Send some initialization commands to the modem
         try:
-            self.write("ATZ")  # reset configuration
+            self.write("AT")  # check communication (do not reset configuration this is done on CARU system level)
         except CommandError:
             # Some modems require a SIM PIN at this stage already; unlock it now
             # Attempt to enable detailed error messages (to catch incorrect PIN error)
@@ -304,7 +304,7 @@ class GsmModem(SerialComms):
             self.write("AT+CMEE=1", parseError=False)
             self._unlockSim(pin)
             pinCheckComplete = True
-            self.write("ATZ")  # reset configuration
+            #self.write("ATZ")  # reset configuration
         else:
             pinCheckComplete = False
         self.write("ATE0")  # echo off
