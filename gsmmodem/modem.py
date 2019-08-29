@@ -430,6 +430,7 @@ class GsmModem(SerialComms):
             self.log.info("Loading LARA-R211 call state update table")
             self._callStatusUpdates = (
                 (re.compile("^\+UCALLSTAT:\s*(\d+),(0|7)$"), self._handleCallAnswered),
+                (re.compile("^\+UCALLSTAT:\s*(\d+),(6)$"), self._handleCallEnded),
                 (re.compile("^NO\s*CARRIER$"), self._handleCallEnded),
                 (re.compile("^NO\s*CARRIER|ANSWER$"), self._handleCallRejected),
             )
