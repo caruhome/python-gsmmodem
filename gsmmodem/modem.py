@@ -597,6 +597,12 @@ class GsmModem(SerialComms):
 
         return (error_type, error_cause, error_description)
 
+    def enableSystrace(self, enable=False):
+        if enable:
+            return self.write('AT+USYSTRACE=0,"bb_sw=1","bb_sw=sdl:th,tr,st,pr,mo,lt,db,li,gt,ae|fts:sdl(gprs,umts)|lte_stk:0x01,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF|lte_stk:0x02,0x801FFFFF|ims:1","oct=4;oct_fcs=32",115200')
+        else:
+            return self.write('AT+USYSTRACE=0')
+            
     def enableDtmf(self):
         return self.write("AT+UDTMFD=1,2,8,100")
 
