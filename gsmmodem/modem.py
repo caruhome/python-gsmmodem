@@ -213,8 +213,10 @@ class GsmModem(SerialComms):
         smsReceivedCallbackFunc=None,
         smsStatusReportCallback=None,
         dtmfReceivedCallback=None,
+        greetingTextReceivedCallback=None,
         requestDelivery=True,
         AT_CNMI="",
+        greeting_text="HALLO_CARU",
         *a,
         **kw
     ):
@@ -229,6 +231,7 @@ class GsmModem(SerialComms):
             smsStatusReportCallback or self._placeholderCallback
         )
         self.dtmfReceivedCallback = dtmfReceivedCallback or self._placeholderCallback
+        self.greetingTextReceivedCallback = greetingTextReceivedCallback or self._placeholderCallback
         self.requestDelivery = requestDelivery
         self.AT_CNMI = AT_CNMI or "2,1,0,2"
         # Flag indicating whether caller ID for incoming call notification has been set up
@@ -271,6 +274,8 @@ class GsmModem(SerialComms):
         self._commands = None  # List of supported AT commands
         # Pool of detected DTMF
         self.dtmfpool = []
+        # Greeting text
+        self._greeting_text = greeting_text
 
     def connect(self, pin=None, waitingForModemToStartInSeconds=0):
         """ Opens the port and initializes the modem and SIM card
@@ -559,6 +564,9 @@ class GsmModem(SerialComms):
         # Enable call hang-up with ATH command (ignore if command not supported)
         self.write("AT+CVHU=0", parseError=False)
 
+        # Set greeting text, if not enabled before it will pop up after next reboot of modem
+        self.setGreetingText(True,self._greeting_text)
+
     def _unlockSim(self, pin):
         """ Unlocks the SIM card using the specified PIN (if necessary, else does nothing) """
         # Unlock the SIM card if needed
@@ -602,6 +610,12 @@ class GsmModem(SerialComms):
             return self.write('AT+USYSTRACE=0,"bb_sw=1","bb_sw=sdl:th,tr,st,pr,mo,lt,db,li,gt,ae|fts:sdl(gprs,umts)|lte_stk:0x01,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF|lte_stk:0x02,0x801FFFFF|ims:1","oct=4;oct_fcs=32",115200')
         else:
             return self.write('AT+USYSTRACE=0')
+
+    def setGreetingText(self, enable=True, text="HALLO_CARU"):
+        if enable:
+            return self.write('AT+CSGT=1,{}'.format(text))
+        else:
+            return self.write('AT+CSGT=0')
             
     def enableDtmf(self):
         return self.write("AT+UDTMFD=1,2,8,100")
@@ -1711,6 +1725,10 @@ class GsmModem(SerialComms):
                 # New incoming DTMF
                 self._handleIncomingDTMF(line)
                 return
+            elif line.contains(self._greeting_text):
+                # Modem has started
+                self._handleGreetingText(line)
+                return
             else:
                 # Check for call status updates
                 for updateRegex, handlerFunc in self._callStatusUpdates:
@@ -1721,6 +1739,11 @@ class GsmModem(SerialComms):
                         return
         # If this is reached, the notification wasn't handled
         self.log.debug("Unhandled unsolicited modem notification: %s", lines)
+
+    # Handle greeting text which is an indicator that modem has restared
+    def _handleGreetingText(self, line):
+        self.log.debug("Handling greeting text")
+        self.greetingTextReceivedCallback(line)
 
     # Simcom modem able detect incoming DTMF
     def _handleIncomingDTMF(self, line):
