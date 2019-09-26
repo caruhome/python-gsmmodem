@@ -56,7 +56,7 @@ class SerialComms(object):
         self.com_args = args
         self.com_kwargs = kwargs
 
-    def connect(self):
+    def connect(self, greeting_text_short):
         """ Connects to the device and starts the read thread """
         self.serial = serial.Serial(
             dsrdtr=True,
@@ -67,6 +67,7 @@ class SerialComms(object):
             *self.com_args,
             **self.com_kwargs
         )
+        self._greeting_text_short = greeting_text_short
         # Start read thread
         self.alive = True
         self.rxThread = threading.Thread(target=self._readLoop)
@@ -90,9 +91,13 @@ class SerialComms(object):
                 self.log.debug("response: %s", self._response)
                 self._responseEvent.set()
         else:
-            # Nothing was waiting for this - treat it as a notification
             self._notification.append(line)
-            if self.serial.inWaiting() == 0:
+            # We received a greeting message, which means the modem has restarted
+            if self._greeting_text_short in line:
+                self.log.debug("notification: %s", self._notification)
+                self.notifyCallback(self._notification)
+            # Nothing was waiting for this - treat it as a notification
+            elif self.serial.inWaiting() == 0:
                 # No more chars on the way for this notification - notify higher-level callback
                 # print 'notification:', self._notification
                 self.log.debug("notification: %s", self._notification)
