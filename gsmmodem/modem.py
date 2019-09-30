@@ -217,6 +217,7 @@ class GsmModem(SerialComms):
         smsStatusReportCallback=None,
         dtmfReceivedCallback=None,
         greetingTextReceivedCallback=None,
+        fatalErrorCallbackFunc=None,
         requestDelivery=True,
         AT_CNMI="",
         greeting_text="CARU",
@@ -235,6 +236,7 @@ class GsmModem(SerialComms):
         )
         self.dtmfReceivedCallback = dtmfReceivedCallback or self._placeholderCallback
         self.greetingTextReceivedCallback = greetingTextReceivedCallback or self._placeholderCallback
+        self.fatalErrorCallbackFunc = fatalErrorCallbackFunc or self._placeholderCallback
         self.requestDelivery = requestDelivery
         self.AT_CNMI = AT_CNMI or "2,1,0,2"
         # Flag indicating whether caller ID for incoming call notification has been set up
@@ -280,12 +282,12 @@ class GsmModem(SerialComms):
 
         # FIXME: A short greeting text might be missed by this library when connecting
         # to the LARA R211 modem, it is assumed the modem prints it on the line too fast. Therefore,
-        # the greeting text is filled up to maximum character number of the greeting message (49). To
+        # the greeting text is filled up to maximum character number of the greeting message (48). To
         # be sure the library catches at least one occurence of the greeting text the length should
         # not be to high (e.g. 4)
         self._greeting_text_short = greeting_text
         self._greeting_text_long = (
-            greeting_text * (49//len(greeting_text) + 1))[:49]
+            greeting_text * (48//len(greeting_text) + 1))[:48]
 
     def connect(self, pin=None, waitingForModemToStartInSeconds=0):
         """ Opens the port and initializes the modem and SIM card
@@ -578,7 +580,7 @@ class GsmModem(SerialComms):
         self.write("AT+CVHU=0", parseError=False)
 
         # Set greeting text, if not enabled before it will pop up after next reboot of modem
-        self.setGreetingText(True, self._greeting_text_long)
+        self.setGreetingText(self._greeting_text_long,True)
 
     def _unlockSim(self, pin):
         """ Unlocks the SIM card using the specified PIN (if necessary, else does nothing) """

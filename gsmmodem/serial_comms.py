@@ -150,27 +150,36 @@ class SerialComms(object):
     def write(
         self, data, waitForResponse=True, timeout=5, expectedResponseTermSeq=None
     ):
-        data = data.encode()
-        with self._txLock:
-            if waitForResponse:
-                if expectedResponseTermSeq:
-                    self._expectResponseTermSeq = bytearray(
-                        expectedResponseTermSeq.encode()
-                    )
-                self._response = []
-                self._responseEvent = threading.Event()
-                self.serial.write(data)
-                if self._responseEvent.wait(timeout):
-                    self._responseEvent = None
-                    self._expectResponseTermSeq = False
-                    return self._response
-                else:  # Response timed out
-                    self._responseEvent = None
-                    self._expectResponseTermSeq = False
-                    if len(self._response) > 0:
-                        # Add the partial response to the timeout exception
-                        raise TimeoutException(self._response)
-                    else:
-                        raise TimeoutException()
-            else:
-                self.serial.write(data)
+        try:
+            data = data.encode()
+            with self._txLock:
+                if waitForResponse:
+                    if expectedResponseTermSeq:
+                        self._expectResponseTermSeq = bytearray(
+                            expectedResponseTermSeq.encode()
+                        )
+                    self._response = []
+                    self._responseEvent = threading.Event()
+                    self.serial.write(data)
+                    if self._responseEvent.wait(timeout):
+                        self._responseEvent = None
+                        self._expectResponseTermSeq = False
+                        return self._response
+                    else:  # Response timed out
+                        self._responseEvent = None
+                        self._expectResponseTermSeq = False
+                        if len(self._response) > 0:
+                            # Add the partial response to the timeout exception
+                            raise TimeoutException(self._response)
+                        else:
+                            raise TimeoutException()
+                else:
+                    self.serial.write(data)
+        except serial.SerialException as e:
+                self.alive = False
+                try:
+                    self.serial.close()
+                except Exception:  # pragma: no cover
+                    pass
+                # Notify the fatal error handler
+                self.fatalErrorCallback(e)
