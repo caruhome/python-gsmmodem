@@ -301,7 +301,7 @@ class GsmModem(SerialComms):
         self.log.info(
             "Connecting to modem on port %s at %dbps", self.port, self.baudrate
         )
-        super(GsmModem, self).connect(self._greeting_text_short)
+        super(GsmModem, self).connect()
 
         time.sleep(5)
 
@@ -620,6 +620,14 @@ class GsmModem(SerialComms):
         error_description = ceer.group(3)
 
         return (error_type, error_cause, error_description)
+
+    def getCellEnvironmentDescription(self):
+        """
+        Return cell environment description (current cell and neighbour):
+        returns nothing. string response from at command (for simplicity, parsing is quite complex) can be seen in debug log mode
+        """
+        cged = self.write("AT+CGED=0", timeout=30)
+
 
     def enableSystrace(self, enable=False):
         if enable:
