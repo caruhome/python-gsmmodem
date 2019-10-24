@@ -207,6 +207,10 @@ class GsmModem(SerialComms):
     # Used for parsing SMS status reports
     CDSI_REGEX = re.compile('\+CDSI:\s*"([^"]+)",(\d+)$')
     CDS_REGEX = re.compile('\+CDS:\s*([0-9]+)"$')
+    # Used for parsing cell environment description (depending on RAT)
+    UCELLINFO_REGEX = re.compile(
+        '^\+UCELLINFO:\s+([a-zA-Z0-9]+),([a-zA-Z0-9]+),([a-zA-Z0-9]+),([a-zA-Z0-9]+),([a-zA-Z0-9]+),([a-zA-Z0-9]+)?(?:,([a-zA-Z0-9]+))?(?:,([a-zA-Z0-9]+))?(?:,([a-zA-Z0-9]+))?(?:,([a-zA-Z0-9]+))?$')
+    # CGED_UMTS_REGEX = re.compile('^\+CGED:\s*RAT:"([A-Z]{3,4})",$')
 
     def __init__(
         self,
@@ -580,7 +584,7 @@ class GsmModem(SerialComms):
         self.write("AT+CVHU=0", parseError=False)
 
         # Set greeting text, if not enabled before it will pop up after next reboot of modem
-        #self.setGreetingText(self._greeting_text_long,True)
+        # self.setGreetingText(self._greeting_text_long,True)
 
     def _unlockSim(self, pin):
         """ Unlocks the SIM card using the specified PIN (if necessary, else does nothing) """
@@ -627,7 +631,6 @@ class GsmModem(SerialComms):
         returns nothing. string response from at command (for simplicity, parsing is quite complex) can be seen in debug log mode
         """
         cged = self.write("AT+CGED=0", timeout=30)
-
 
     def enableSystrace(self, enable=False):
         if enable:
@@ -786,6 +789,77 @@ class GsmModem(SerialComms):
 
         return networks
 
+    def getCellinfo(self):
+        ucellinfo = self.write("AT+UCELLINFO?")[:-1]
+        serving_cell = []
+        neighbour_cells = []
+
+        for line in ucellinfo:
+
+            match = self.UCELLINFO_REGEX.match(line)
+
+            cell_type = int(match.groups()[1])
+            # 2G serving or neighbour cell
+            if cell_type == 0 or cell_type == 1:
+                mode, c_type, mcc, mnc, lac, ci, rx_lev, t_adv, ch_type, ch_mode = match.groups()
+                cell = {
+                    "mode": mode,
+                    "c_type": cell_type,
+                    "mcc": mcc,
+                    "mnc": mnc,
+                    "lac": lac,
+                    "ci": ci,
+                    "rx_lev": rx_lev,
+                    "t_adv": t_adv,
+                    "ch_type": ch_type,
+                    "ch_mode": ch_mode,
+                }
+                if cell_type == 0:
+                    serving_cell.append(cell)
+                elif cell_type == 1:
+                    neighbour_cells.append(cell)
+            # 3G serving cell or cell belonging to the Active Set
+            elif cell_type == 2:
+                pass  # TODO: parse for 3G
+            # neighbour 3G cell
+            elif cell_type == 3:
+                pass  # TODO: parse for 3G
+            # detected 3G cell
+            elif cell_type == 4:
+                pass  # TODO: parse for 3G
+            # 4G serving cell
+            elif cell_type == 5:
+                mode, cell_type, mcc, mnc, ci_4g, phys_cellid, tac, rsrp, rsrq, ta = match.groups()
+                serving_cell.append(
+                    {
+                        "mode": mode,
+                        "cell_type": cell_type,
+                        "mcc": mcc,
+                        "mnc": mnc,
+                        "4gci": ci_4g,
+                        "phys_cellid": phys_cellid,
+                        "tac": tac,
+                        "rsrp": rsrp,
+                        "rsrq": rsrq,
+                        "ta": ta,
+                    }
+                )
+            # neighbour 4G cell
+            elif match.groups()[1] == 6:
+                mode, cell_type, earfcn, phys_cellid, rsrp, rsrq = match.groups()
+                serving_cell.append(
+                    {
+                        "mode": mode,
+                        "cell_type": cell_type,
+                        "earfcn": earfcn,
+                        "phys_cellid": phys_cellid,
+                        "rsrp": rsrp,
+                        "rsrq": rsrq,
+                    }
+                )
+
+        return serving_cell, neighbour_cells
+
     def write(
         self,
         data,
@@ -880,6 +954,35 @@ class GsmModem(SerialComms):
                 ):  # Some Huawei modems respond with this for unknown commands
                     raise CommandError("{} ({})".format(data, cmdStatusLine))
             return responseLines
+
+    def signalStrengthExtended(self):
+        """ Extended check of cellular network signal
+
+        - rxlev: received signal strength indication (rssi)
+        - ber: bit error rate
+        - rscp: received signal code power
+        - ecn0: ratio of received energy per PN chip to the total power spectral density
+
+        see Lara R211, AT commands manual; page 82, chapter 7.3.3
+
+        :raise CommandError: if an error occurs
+
+        :return A tuple (rxlev, ber, rscp, ecn0)
+        """
+        cesq = self.CESQ_REGEX.match(self.write("AT+CESQ")[0])
+
+        if not cesq:
+            self.log.warning("Unable to parse response for AT+CESQ")
+            return (None, None, None, None, None, None)
+
+        rxlev = int(cesq.group(1))
+        ber = int(cesq.group(2))
+        rscp = int(cesq.group(3))
+        ecn0 = int(cesq.group(4))
+        rsrq = int(cesq.group(5))
+        rsrp = int(cesq.group(6))
+
+        return (rxlev, ber, rscp, ecn0, rsrq, rsrp)
 
     def signalStrengthExtended(self):
         """ Extended check of cellular network signal
