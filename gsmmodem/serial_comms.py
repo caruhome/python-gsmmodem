@@ -33,7 +33,6 @@ class SerialComms(object):
         **kwargs
     ):
         """ Constructor
-
         :param fatalErrorCallbackFunc: function to call if a fatal error occurs in the serial device reading thread
         :type fatalErrorCallbackFunc: func
         """
@@ -56,7 +55,7 @@ class SerialComms(object):
         self.com_args = args
         self.com_kwargs = kwargs
 
-    def connect(self, greeting_text_short):
+    def connect(self):
         """ Connects to the device and starts the read thread """
         self.serial = serial.Serial(
             dsrdtr=True,
@@ -67,7 +66,6 @@ class SerialComms(object):
             *self.com_args,
             **self.com_kwargs
         )
-        self._greeting_text_short = greeting_text_short
         # Start read thread
         self.alive = True
         self.rxThread = threading.Thread(target=self._readLoop)
@@ -91,13 +89,9 @@ class SerialComms(object):
                 self.log.debug("response: %s", self._response)
                 self._responseEvent.set()
         else:
-            self._notification.append(line)
-            # We received a greeting message, which means the modem has restarted
-            if self._greeting_text_short in line:
-                self.log.debug("notification: %s", self._notification)
-                self.notifyCallback(self._notification)
             # Nothing was waiting for this - treat it as a notification
-            elif self.serial.inWaiting() == 0:
+            self._notification.append(line)
+            if self.serial.inWaiting() == 0:
                 # No more chars on the way for this notification - notify higher-level callback
                 # print 'notification:', self._notification
                 self.log.debug("notification: %s", self._notification)
@@ -109,7 +103,6 @@ class SerialComms(object):
 
     def _readLoop(self):
         """ Read thread main loop
-
         Reads lines from the connected device
         """
         try:
@@ -150,36 +143,28 @@ class SerialComms(object):
     def write(
         self, data, waitForResponse=True, timeout=5, expectedResponseTermSeq=None
     ):
-        try:
-            data = data.encode()
-            with self._txLock:
-                if waitForResponse:
-                    if expectedResponseTermSeq:
-                        self._expectResponseTermSeq = bytearray(
-                            expectedResponseTermSeq.encode()
-                        )
-                    self._response = []
-                    self._responseEvent = threading.Event()
-                    self.serial.write(data)
-                    if self._responseEvent.wait(timeout):
-                        self._responseEvent = None
-                        self._expectResponseTermSeq = False
-                        return self._response
-                    else:  # Response timed out
-                        self._responseEvent = None
-                        self._expectResponseTermSeq = False
-                        if len(self._response) > 0:
-                            # Add the partial response to the timeout exception
-                            raise TimeoutException(self._response)
-                        else:
-                            raise TimeoutException()
-                else:
-                    self.serial.write(data)
-        except serial.SerialException as e:
-                self.alive = False
-                try:
-                    self.serial.close()
-                except Exception:  # pragma: no cover
-                    pass
-                # Notify the fatal error handler
-                self.fatalErrorCallback(e)
+        data = data.encode()
+        with self._txLock:
+            if waitForResponse:
+                if expectedResponseTermSeq:
+                    self._expectResponseTermSeq = bytearray(
+                        expectedResponseTermSeq.encode()
+                    )
+                self._response = []
+                self._responseEvent = threading.Event()
+                self.serial.write(data)
+                if self._responseEvent.wait(timeout):
+                    self._responseEvent = None
+                    self._expectResponseTermSeq = False
+                    return self._response
+                else:  # Response timed out
+                    self._responseEvent = None
+                    self._expectResponseTermSeq = False
+                    if len(self._response) > 0:
+                        # Add the partial response to the timeout exception
+                        raise TimeoutException(self._response)
+                    else:
+                        raise TimeoutException()
+            else:
+                self.serial.write(data)
+© 2019 GitHub, Inc.

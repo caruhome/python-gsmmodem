@@ -580,7 +580,7 @@ class GsmModem(SerialComms):
         self.write("AT+CVHU=0", parseError=False)
 
         # Set greeting text, if not enabled before it will pop up after next reboot of modem
-        self.setGreetingText(self._greeting_text_long,True)
+        #self.setGreetingText(self._greeting_text_long,True)
 
     def _unlockSim(self, pin):
         """ Unlocks the SIM card using the specified PIN (if necessary, else does nothing) """
@@ -1766,10 +1766,10 @@ class GsmModem(SerialComms):
                 # New incoming DTMF
                 self._handleIncomingDTMF(line)
                 return
-            elif self._greeting_text_short in line:
-                # Modem has started
-                self._handleGreetingText(line)
-                return
+            # elif self._greeting_text_short in line:
+            #     # Modem has started
+            #     self._handleGreetingText(line)
+            #     return
             else:
                 # Check for call status updates
                 for updateRegex, handlerFunc in self._callStatusUpdates:
