@@ -167,4 +167,3 @@ class SerialComms(object):
                         raise TimeoutException()
             else:
                 self.serial.write(data)
-© 2019 GitHub, Inc.
