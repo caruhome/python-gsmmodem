@@ -220,6 +220,7 @@ class GsmModem(SerialComms):
         smsReceivedCallbackFunc=None,
         smsStatusReportCallback=None,
         dtmfReceivedCallback=None,
+        uustsEventReceivedCallback=None,
         greetingTextReceivedCallback=None,
         fatalErrorCallbackFunc=None,
         requestDelivery=True,
@@ -239,6 +240,7 @@ class GsmModem(SerialComms):
             smsStatusReportCallback or self._placeholderCallback
         )
         self.dtmfReceivedCallback = dtmfReceivedCallback or self._placeholderCallback
+        self.uustsEventReceivedCallback = uustsEventReceivedCallback or self._placeholderCallback
         self.greetingTextReceivedCallback = greetingTextReceivedCallback or self._placeholderCallback
         self.fatalErrorCallbackFunc = fatalErrorCallbackFunc or self._placeholderCallback
         self.requestDelivery = requestDelivery
@@ -690,6 +692,17 @@ class GsmModem(SerialComms):
                 selected_access_technology, preferred_access_technolgy
             ),
             timeout=30,
+        )
+
+    def setSmartTemperatureSupervisor(self, enable, shutdown):
+        mode = 0
+        if enable and shutdown:
+            mode = 1
+        elif enable and not shutdown:
+            mode = 2
+
+        return self.write(
+            'AT+USTS={}'.format(mode)
         )
 
     def getNetworkRegistrationStatus(self):
@@ -1869,6 +1882,10 @@ class GsmModem(SerialComms):
                 # New incoming DTMF
                 self._handleIncomingDTMF(line)
                 return
+            elif line.startswith("+UUSTS"):
+                # New incoming UUSTS
+                self._handleIncomingUUSTS(line)
+                return
             # elif self._greeting_text_short in line:
             #     # Modem has started
             #     self._handleGreetingText(line)
@@ -1900,6 +1917,21 @@ class GsmModem(SerialComms):
             self.log.debug("DTMF number is {0}".format(dtmf_num))
         except:
             self.log.debug("Error parse DTMF number on line {0}".format(line))
+
+    # Handle incoming temperature change
+    def _handleIncomingUUSTS(self, line):
+        self.log.debug("Handling incoming UUSTS")
+
+        try:
+            values = line.split(":")[1].replace(" ", "")
+            mode, event = values.split(",")
+            mode, event = values.split(",")
+            mode = int(mode)
+            event = int(event)
+            self.uustsEventReceivedCallback(event)
+            self.log.debug("UUSTS event is {0}".format(event))
+        except:
+            self.log.debug("Error parse UUSTS event on line {0}".format(line))
 
     def GetIncomingDTMF(self):
         if len(self.dtmfpool) == 0:
