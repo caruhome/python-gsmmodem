@@ -210,7 +210,12 @@ class GsmModem(SerialComms):
     # Used for parsing cell environment description (depending on RAT)
     UCELLINFO_REGEX = re.compile(
         '^\+UCELLINFO:\s+([a-zA-Z0-9]+),([a-zA-Z0-9]+),([a-zA-Z0-9]+),([a-zA-Z0-9]+),([a-zA-Z0-9]+),([a-zA-Z0-9]+)?(?:,([a-zA-Z0-9]+))?(?:,([a-zA-Z0-9]+))?(?:,([a-zA-Z0-9]+))?(?:,([a-zA-Z0-9]+))?$')
-    # CGED_UMTS_REGEX = re.compile('^\+CGED:\s*RAT:"([A-Z]{3,4})",$')
+    CREG_URC_REGEX = re.compile(
+        '^\+CREG:\s(\d+)(?:,"([^"]+)","([^"]+)")?(?:,(\d+))?$')
+    CEREG_URC_REGEX = re.compile(
+        '^\+CEREG:\s(\d+)(?:,"([^"]+)")?(?:,"([^"]+)")?(?:,(\d+))?$')
+    CGREG_URC_REGEX = re.compile(
+        '^\+CGREG:\s(\d+)(?:,"([^"]+)","([^"]+)")?(?:,(\d+),"([^"]+)")?$')
 
     def __init__(
         self,
@@ -455,6 +460,7 @@ class GsmModem(SerialComms):
         elif callUpdateTableHint == 4:  # LARA-R211
             self.log.info("Loading LARA-R211 call state update table")
             self._callStatusUpdates = (
+                # TODO: add more ucallstat states? (e.g. ringing or dialing 2 and 3)
                 (re.compile("^\+UCALLSTAT:\s*(\d+),(0|7)$"), self._handleCallAnswered),
                 (re.compile("^\+UCALLSTAT:\s*(\d+),(6)$"), self._handleCallEnded),
                 (re.compile("^NO\s*CARRIER$"), self._handleCallEnded),
@@ -663,6 +669,25 @@ class GsmModem(SerialComms):
 
     def enableCallStatusUpdates(self):
         return self.write("AT+UCALLSTAT=1")
+
+    def enableNetworkRegistrationStatusUpdates(self):
+        # GSM (CS) network registration and location information URC
+        return self.write("AT+CREG=2")
+
+    def enableGPRSNetworkRegistrationStatusUpdate(self):
+        # GPRS (EDGE) network registration and location information URC
+        return self.write("AT+CGREG=2")
+
+    def enableEPSNetworkRegistrationStatusUpdate(self):
+        # EPS (LTE) network registration and location information URC
+        return self.write("AT+CEREG=2")
+
+    def enableExtendedPacketSwitchedNetworkRegistrationStatusUpdate(self):
+        return self.write("AT+UREG=1")
+
+    # NOTE: correct?
+    def enableGPRSEventReporting(self):
+        return self.write("AT+CGEREP=1")
 
     def setAutomaticNetworkSelection(self):
         return self.write("AT+COPS=0", timeout=30)
@@ -1847,28 +1872,34 @@ class GsmModem(SerialComms):
         :param lines The lines that were read
         """
         self.log.debug("Handle unsolicited modem notification: %s", lines)
+        unhandled_lines = lines.copy()
         next_line_is_te_statusreport = False
         for line in lines:
             if "RING" in line:
                 # Incoming call (or existing call is ringing)
                 self._handleIncomingCall(lines)
-                return
+                unhandled_lines.remove(line)
+                # return
             elif line.startswith("+CMTI"):
                 # New SMS message indication
                 self._handleSmsReceived(line)
-                return
+                unhandled_lines.remove(line)
+                # return
             elif line.startswith("+CUSD"):
                 # USSD notification - either a response or a MT-USSD ("push USSD") message
                 self._handleUssd(lines)
-                return
+                unhandled_lines.remove(line)
+                # return
             elif line.startswith("+CDSI"):
                 # SMS status report
                 self._handleSmsStatusReport(line)
-                return
+                unhandled_lines.remove(line)
+                # return
             elif line.startswith("+CDS"):
                 # SMS status report at next line
                 next_line_is_te_statusreport = True
                 cdsMatch = self.CDS_REGEX.match(line)
+                unhandled_lines.remove(line)
                 if cdsMatch:
                     next_line_is_te_statusreport_length = int(
                         cdsMatch.group(1))
@@ -1877,15 +1908,43 @@ class GsmModem(SerialComms):
             elif next_line_is_te_statusreport:
                 self._handleSmsStatusReportTe(
                     next_line_is_te_statusreport_length, line)
-                return
+                unhandled_lines.remove(line)
+                # return
             elif line.startswith("+UUDTMFD"):
                 # New incoming DTMF
                 self._handleIncomingDTMF(line)
-                return
+                unhandled_lines.remove(line)
+                # return
             elif line.startswith("+UUSTS"):
                 # New incoming UUSTS
                 self._handleIncomingUUSTS(line)
-                return
+                unhandled_lines.remove(line)
+                # return
+            elif line.startswith("+CREG"):
+                # New incoming CREG URC
+                self._handleIncomingCREG(line)
+                unhandled_lines.remove(line)
+                # return
+            elif line.startswith("+CEREG"):
+                # New incoming CREG URC
+                self._handleIncomingCEREG(line)
+                unhandled_lines.remove(line)
+                # return
+            elif line.startswith("+CGREG"):
+                # New incoming CGREG URC
+                self._handleIncomingCGREG(line)
+                unhandled_lines.remove(line)
+                # return
+            elif line.startswith("+UREG"):
+                # New incoming UREG URC
+                self._handleIncomingUREG(line)
+                unhandled_lines.remove(line)
+                # return
+            elif line.startswith("+CGEV"):
+                # New incoming CGEV URC
+                self._handleIncomingCGEV(line)
+                unhandled_lines.remove(line)
+                # return
             # elif self._greeting_text_short in line:
             #     # Modem has started
             #     self._handleGreetingText(line)
@@ -1897,9 +1956,85 @@ class GsmModem(SerialComms):
                     if match:
                         # Handle the update
                         handlerFunc(match)
-                        return
-        # If this is reached, the notification wasn't handled
-        self.log.debug("Unhandled unsolicited modem notification: %s", lines)
+                        unhandled_lines.remove(line)
+                        # return
+        # Inform about unhandled unsolicited modem notifcations
+        if len(unhandled_lines) > 0:
+            self.log.debug(
+                "Unhandled unsolicited modem notification: %s", unhandled_lines)
+
+    # Handle incoming CREG change
+    def _handleIncomingCREG(self, line):
+        self.log.debug("Handling incoming CREG")
+
+        try:
+            match = self.CREG_URC_REGEX.match(line)
+            stat, lac, ci, act = match.groups()
+            creg = {
+                "stat": stat,
+                "lac": lac,
+                "ci": ci,
+                "act": act,
+            }
+            self.log.debug("CREG event is {}".format(creg))
+        except:
+            self.log.debug("Error parse CREG event on line {0}".format(line))
+
+    # Handle incoming CEREG change
+    def _handleIncomingCEREG(self, line):
+        self.log.debug("Handling incoming CEREG")
+
+        try:
+            # NOTE: regex works only if CEREG=2!!
+            match = self.CEREG_URC_REGEX.match(line)
+            stat, tac, ci, act = match.groups()
+            cereg = {
+                "stat": stat,
+                "tac": tac,
+                "ci": ci,
+                "act": act,
+            }
+            self.log.debug("CEREG event is {}".format(cereg))
+        except:
+            self.log.debug("Error parse CEREG event on line {0}".format(line))
+
+    # Handle incoming CGREG change
+    def _handleIncomingCGREG(self, line):
+        self.log.debug("Handling incoming CGREG")
+
+        try:
+            match = self.CGREG_URC_REGEX.match(line)
+            stat, lac, ci, act, rac = match.groups()
+            cgreg = {
+                "stat": stat,
+                "lac": lac,
+                "ci": ci,
+                "act": act,
+                "rac": rac,
+            }
+            self.log.debug("CGREG event is {}".format(cgreg))
+        except:
+            self.log.debug("Error parse CGREG event on line {0}".format(line))
+
+    # Handle incoming UREG change
+    def _handleIncomingUREG(self, line):
+        self.log.debug("Handling incoming UREG")
+
+        try:
+            state = line.split(":")[1].replace(" ", "")
+            state = int(state)
+            self.log.debug("UREG event is {}".format(line))
+        except:
+            self.log.debug("Error parse UREG event on line {0}".format(line))
+
+    # Handle incoming CGEV change
+    def _handleIncomingCGEV(self, line):
+        self.log.debug("Handling incoming CGEV")
+        # TODO: implement actual parsing
+        try:
+            self.log.debug("CGEV event is {}".format(line))
+        except:
+            self.log.debug("Error parse CGEV event on line {0}".format(line))
 
     # Handle greeting text which is an indicator that modem has restared
     def _handleGreetingText(self, line):
@@ -1924,7 +2059,6 @@ class GsmModem(SerialComms):
 
         try:
             values = line.split(":")[1].replace(" ", "")
-            mode, event = values.split(",")
             mode, event = values.split(",")
             mode = int(mode)
             event = int(event)
