@@ -838,65 +838,66 @@ class GsmModem(SerialComms):
 
             match = self.UCELLINFO_REGEX.match(line)
 
-            cell_type = int(match.groups()[1])
-            # 2G serving or neighbour cell
-            if cell_type == 0 or cell_type == 1:
-                mode, c_type, mcc, mnc, lac, ci, rx_lev, t_adv, ch_type, ch_mode = match.groups()
-                cell = {
-                    "mode": mode,
-                    "c_type": cell_type,
-                    "mcc": mcc,
-                    "mnc": mnc,
-                    "lac": lac,
-                    "ci": ci,
-                    "rx_lev": rx_lev,
-                    "t_adv": t_adv,
-                    "ch_type": ch_type,
-                    "ch_mode": ch_mode,
-                }
-                if cell_type == 0:
-                    serving_cell.append(cell)
-                elif cell_type == 1:
-                    neighbour_cells.append(cell)
-            # 3G serving cell or cell belonging to the Active Set
-            elif cell_type == 2:
-                pass  # TODO: parse for 3G
-            # neighbour 3G cell
-            elif cell_type == 3:
-                pass  # TODO: parse for 3G
-            # detected 3G cell
-            elif cell_type == 4:
-                pass  # TODO: parse for 3G
-            # 4G serving cell
-            elif cell_type == 5:
-                mode, cell_type, mcc, mnc, ci_4g, phys_cellid, tac, rsrp, rsrq, ta = match.groups()
-                serving_cell.append(
-                    {
+            if match:
+                cell_type = int(match.groups()[1])
+                # 2G serving or neighbour cell
+                if cell_type == 0 or cell_type == 1:
+                    mode, c_type, mcc, mnc, lac, ci, rx_lev, t_adv, ch_type, ch_mode = match.groups()
+                    cell = {
                         "mode": mode,
-                        "cell_type": cell_type,
+                        "c_type": cell_type,
                         "mcc": mcc,
                         "mnc": mnc,
-                        "4gci": ci_4g,
-                        "phys_cellid": phys_cellid,
-                        "tac": tac,
-                        "rsrp": rsrp,
-                        "rsrq": rsrq,
-                        "ta": ta,
+                        "lac": lac,
+                        "ci": ci,
+                        "rx_lev": rx_lev,
+                        "t_adv": t_adv,
+                        "ch_type": ch_type,
+                        "ch_mode": ch_mode,
                     }
-                )
-            # neighbour 4G cell
-            elif match.groups()[1] == 6:
-                mode, cell_type, earfcn, phys_cellid, rsrp, rsrq = match.groups()
-                serving_cell.append(
-                    {
-                        "mode": mode,
-                        "cell_type": cell_type,
-                        "earfcn": earfcn,
-                        "phys_cellid": phys_cellid,
-                        "rsrp": rsrp,
-                        "rsrq": rsrq,
-                    }
-                )
+                    if cell_type == 0:
+                        serving_cell.append(cell)
+                    elif cell_type == 1:
+                        neighbour_cells.append(cell)
+                # 3G serving cell or cell belonging to the Active Set
+                elif cell_type == 2:
+                    pass  # TODO: parse for 3G
+                # neighbour 3G cell
+                elif cell_type == 3:
+                    pass  # TODO: parse for 3G
+                # detected 3G cell
+                elif cell_type == 4:
+                    pass  # TODO: parse for 3G
+                # 4G serving cell
+                elif cell_type == 5:
+                    mode, cell_type, mcc, mnc, ci_4g, phys_cellid, tac, rsrp, rsrq, ta = match.groups()
+                    serving_cell.append(
+                        {
+                            "mode": mode,
+                            "cell_type": cell_type,
+                            "mcc": mcc,
+                            "mnc": mnc,
+                            "4gci": ci_4g,
+                            "phys_cellid": phys_cellid,
+                            "tac": tac,
+                            "rsrp": rsrp,
+                            "rsrq": rsrq,
+                            "ta": ta,
+                        }
+                    )
+                # neighbour 4G cell
+                elif match.groups()[1] == 6:
+                    mode, cell_type, earfcn, phys_cellid, rsrp, rsrq = match.groups()
+                    serving_cell.append(
+                        {
+                            "mode": mode,
+                            "cell_type": cell_type,
+                            "earfcn": earfcn,
+                            "phys_cellid": phys_cellid,
+                            "rsrp": rsrp,
+                            "rsrq": rsrq,
+                        }
+                    )
 
         return serving_cell, neighbour_cells
 
