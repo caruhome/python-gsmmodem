@@ -226,6 +226,7 @@ class GsmModem(SerialComms):
         smsStatusReportCallback=None,
         dtmfReceivedCallback=None,
         uustsEventReceivedCallback=None,
+        networkRegistrationEventReceivedCallback=None,
         greetingTextReceivedCallback=None,
         fatalErrorCallbackFunc=None,
         requestDelivery=True,
@@ -246,6 +247,7 @@ class GsmModem(SerialComms):
         )
         self.dtmfReceivedCallback = dtmfReceivedCallback or self._placeholderCallback
         self.uustsEventReceivedCallback = uustsEventReceivedCallback or self._placeholderCallback
+        self.networkRegistrationEventReceivedCallback = networkRegistrationEventReceivedCallback or self._placeholderCallback
         self.greetingTextReceivedCallback = greetingTextReceivedCallback or self._placeholderCallback
         self.fatalErrorCallbackFunc = fatalErrorCallbackFunc or self._placeholderCallback
         self.requestDelivery = requestDelivery
@@ -461,7 +463,7 @@ class GsmModem(SerialComms):
             self.log.info("Loading LARA-R211 call state update table")
             self._callStatusUpdates = (
                 # TODO: add more ucallstat states? (e.g. ringing or dialing 2 and 3)
-                (re.compile("^\+UCALLSTAT:\s*(\d+),(0|7)$"), self._handleCallAnswered),
+                (re.compile("^\+UCALLSTAT:\s*(\d+),(0)$"), self._handleCallAnswered),
                 (re.compile("^\+UCALLSTAT:\s*(\d+),(6)$"), self._handleCallEnded),
                 (re.compile("^NO\s*CARRIER$"), self._handleCallEnded),
                 (re.compile("^NO\s*CARRIER|ANSWER$"), self._handleCallRejected),
@@ -1971,12 +1973,14 @@ class GsmModem(SerialComms):
             match = self.CREG_URC_REGEX.match(line)
             stat, lac, ci, act = match.groups()
             creg = {
+                "name": "creg",
                 "stat": stat,
                 "lac": lac,
                 "ci": ci,
                 "act": act,
             }
             self.log.debug("CREG event is {}".format(creg))
+            self.networkRegistrationEventReceivedCallback(creg)
         except:
             self.log.debug("Error parse CREG event on line {0}".format(line))
 
@@ -1989,12 +1993,14 @@ class GsmModem(SerialComms):
             match = self.CEREG_URC_REGEX.match(line)
             stat, tac, ci, act = match.groups()
             cereg = {
+                "name": "cereg",
                 "stat": stat,
                 "tac": tac,
                 "ci": ci,
                 "act": act,
             }
             self.log.debug("CEREG event is {}".format(cereg))
+            self.networkRegistrationEventReceivedCallback(cereg)
         except:
             self.log.debug("Error parse CEREG event on line {0}".format(line))
 
@@ -2006,6 +2012,7 @@ class GsmModem(SerialComms):
             match = self.CGREG_URC_REGEX.match(line)
             stat, lac, ci, act, rac = match.groups()
             cgreg = {
+                "name": "cgreg",
                 "stat": stat,
                 "lac": lac,
                 "ci": ci,
@@ -2013,6 +2020,7 @@ class GsmModem(SerialComms):
                 "rac": rac,
             }
             self.log.debug("CGREG event is {}".format(cgreg))
+            self.networkRegistrationEventReceivedCallback(cgreg)
         except:
             self.log.debug("Error parse CGREG event on line {0}".format(line))
 
@@ -2023,7 +2031,12 @@ class GsmModem(SerialComms):
         try:
             state = line.split(":")[1].replace(" ", "")
             state = int(state)
+            ureg = {
+                "name": "ureg",
+                "state": state,
+            }
             self.log.debug("UREG event is {}".format(line))
+            self.networkRegistrationEventReceivedCallback(ureg)
         except:
             self.log.debug("Error parse UREG event on line {0}".format(line))
 
