@@ -465,8 +465,8 @@ class GsmModem(SerialComms):
                 # TODO: add more ucallstat states? (e.g. ringing or dialing 2 and 3)
                 (re.compile("^\+UCALLSTAT:\s*(\d+),(0)$"), self._handleCallAnswered),
                 (re.compile("^\+UCALLSTAT:\s*(\d+),(6)$"), self._handleCallEnded),
-                (re.compile("^NO\s*CARRIER$"), self._handleCallEnded),
-                (re.compile("^NO\s*CARRIER|ANSWER$"), self._handleCallRejected),
+                #(re.compile("^NO\s*CARRIER$"), self._handleCallEnded),
+                #(re.compile("^NO\s*CARRIER|ANSWER$"), self._handleCallRejected),
             )
             # Most modems return OK immediately after issuing ATD
             self._waitForAtdResponse = True
