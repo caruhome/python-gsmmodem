@@ -2034,7 +2034,7 @@ class GsmModem(SerialComms):
             state = int(state)
             ureg = {
                 "name": "ureg",
-                "state": state,
+                "stat": state,
             }
             self.log.debug("UREG event is {}".format(line))
             self.networkRegistrationEventReceivedCallback(ureg)
