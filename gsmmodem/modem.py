@@ -640,7 +640,8 @@ class GsmModem(SerialComms):
         Return cell environment description (current cell and neighbour):
         returns nothing. string response from at command (for simplicity, parsing is quite complex) can be seen in debug log mode
         """
-        cged = self.write("AT+CGED=0", timeout=30)
+        cged = self.write("AT+CGED=128", timeout=30)
+        return cged
 
     def enableSystrace(self, enable=False):
         if enable:
@@ -1925,22 +1926,22 @@ class GsmModem(SerialComms):
                 # return
             elif line.startswith("+CREG"):
                 # New incoming CREG URC
-                self._handleIncomingCREG(line)
+                self._handleIncomingNetworkRegistrationEvent(line,"CREG")
                 unhandled_lines.remove(line)
                 # return
             elif line.startswith("+CEREG"):
-                # New incoming CREG URC
-                self._handleIncomingCEREG(line)
+                # New incoming CEREG URC
+                self._handleIncomingNetworkRegistrationEvent(line,"CEREG")
                 unhandled_lines.remove(line)
                 # return
             elif line.startswith("+CGREG"):
                 # New incoming CGREG URC
-                self._handleIncomingCGREG(line)
+                self._handleIncomingNetworkRegistrationEvent(line,"CGREG")
                 unhandled_lines.remove(line)
                 # return
             elif line.startswith("+UREG"):
                 # New incoming UREG URC
-                self._handleIncomingUREG(line)
+                self._handleIncomingNetworkRegistrationEvent(line,"UREG")
                 unhandled_lines.remove(line)
                 # return
             elif line.startswith("+CGEV"):
@@ -1965,6 +1966,16 @@ class GsmModem(SerialComms):
         if len(unhandled_lines) > 0:
             self.log.debug(
                 "Unhandled unsolicited modem notification: %s", unhandled_lines)
+
+    # Handle incoming network registration events
+    def _handleIncomingNetworkRegistrationEvent(self, line, type):
+        self.log.debug("Handling incoming network registration events")
+
+        try:
+            self.log.debug("network registration event is {}".format(line))
+            self.networkRegistrationEventReceivedCallback(line, type)
+        except:
+            self.log.debug("Error parse CREG event on line {0}".format(line))
 
     # Handle incoming CREG change
     def _handleIncomingCREG(self, line):
